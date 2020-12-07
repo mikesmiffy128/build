@@ -1,0 +1,5 @@
+/build/
+/.builddb/
+# gimme a place to dump random tests and stuff
+/junk/
+/compile_commands.json

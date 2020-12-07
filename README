@@ -1,0 +1,90 @@
+== HOW TO BUILD THE SOFTWARE ==
+
+build will build build. When that happens, just type build. Until then, you can
+use ./strap to bootstrap it. Installing is left as an exercise to the reader,
+but shouldn't be too complicated to figure out.
+
+This thing relies on libc functions and declarations that you probably don't
+have because your OS is bad. If/when you get compile warnings or link errors,
+use libcpoly, my browser-polyfill-except-not-for-browsers:
+
+  https://gitlab.com/mikesmiffy128/libcpoly
+
+The bootstrap script will use it as needed if it's available in your include and
+library paths.
+
+build is developed and tested on Linux with glibc, but should work under Linux
+with musl, the major BSDs and illumos as well. If it doesn't, that's a bug
+that'll need fixed before release.
+
+== PROJECT STRUCTURE ==
+
+This should be self-explanatory, but for the sake of maximum clarity, here's a
+quick tour:
+
+src/     - implementation source code
+test/    - automated tests: sanity checks and regression coverage
+include/ - public headers, to be installed along with the software
+man/     - manual pages to be installed along with the software
+DevDocs/ - notes, rants, random information that might come in handy
+TODO/    - issue tracking, see above
+tools/   - scripts and snippets to support the development of the project
+
+build/   - compilation results - don't edit by hand!
+junk/    - doesn't exist, but is ignored by Git for your convenience
+
+== DEVELOPMENT PROCESS ==
+
+So this program is a personal project of mine that I've wanted to make anyway,
+but it's also my university project.
+
+I've been told that if I don't have some sort of development process and project
+management system in place then I'm doing it wrong and the resulting project
+might not be as good or whatever. It's therefore unfortunate that the entire
+software development industry is built on complicated cargo-cult tooling that
+wastes time and causes immense sadness - indeed, sadness that this new build
+system is part of an effort to avoid. So here's what I've come up with to
+convince people that I do in fact keep track of what I'm doing, without creating
+too much unnecessary development friction for myself.
+
+You could call it a Unix filesystem-backed Kanban board, if you wanted to. I'm
+not sure if I want to. That sounds pretty pretentious.
+
+Start by loading the `todo` function:
+
+  . tools/todo.sh
+
+OR (if you want to use this system elsewhere, I guess):
+
+  cat tools/todo >> ~/.your_shell_rc
+
+Then type one of these commands:
+
+  todo
+    (prints a list of issues)
+  todo issue-identifier
+    (lists a particular issue in detail and lists cross-references in code)
+
+To actually create/edit issues, create a text file named TODO/issue-identifier,
+in the following format:
+
+  Title
+  [lines reserved for some sort of headers later]
+  ====
+  Body (extended description, comments, etc)
+
+To reference issues from inside code:
+
+  // TODO(issue-identifier): additional optional context if you want
+
+To close an issue, move it to TODO/.issue-identifier. This hides it, but
+maintains its documentation for reference.
+
+For really urgent issues with specific bits of code, use FIXME comments with
+inline explanation. A stable release shouldn't have any FIXMEs - this will
+prevent accumulation of bugs. XXX can also be used for stuff that's just vaguely
+bad but not an outright bug and can get cleaned up "later" (i.e. might never
+get cleaned up, but who cares, cleaning it up is merely a bonus).
+
+"bUt wHAt aBOuT cLOseS iDs In COmMIt MeSsAGeS?!"
+... just move the file as part of the commit. Stop overcomplicating things.

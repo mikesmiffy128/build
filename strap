@@ -1,0 +1,5 @@
+#!/bin/sh -e
+
+echo "TODO(basic-core): compile the thing"
+
+# vi: sw=4 ts=4 noet tw=80 cc=80

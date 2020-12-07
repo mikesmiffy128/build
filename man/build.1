@@ -1,0 +1,49 @@
+.\" This file is dedicated to the public domain.
+.\"
+.Dd December 07 2020
+.Dt BUILD 1
+.Sh NAME
+.Nm build
+.Nd efficient and flexible build tool
+.Os
+.Sh SYNOPSIS
+.Nm build
+.Op Fl j Ar jobs_at_once
+.Op Fl B
+.Ar [command...]
+.Sh DESCRIPTION
+.Nm
+invokes an executable
+\(em
+either
+.Ar command
+or ./Buildfile if no command is specified. If the executable has already run
+before,
+.Nm
+instead produces the same return code and output. If the executable has been
+modified, it will be rerun.
+
+Executables may also ask the build system for dependencies. If a dependency has
+to be rerun, then its known dependents will also be rerun to keep everything up
+to date. See
+.Xr build-dep 1
+and
+.Xr build-infile 1
+for help with dependency specification.
+
+.Sh EXIT STATUS
+.Nm
+exits with whatever
+.Ar command
+exited with, unless an internal error occurs, in which case 100 is used to
+signify a temporary error, and 200 is used to signify something really really
+bad.
+
+.Sh SEE ALSO
+.Xr build-infile 1 ,
+.Xr build-dep 1 ,
+.Sh COPYRIGHT
+This documentation is placed into the public domain. The
+.Xr build 1
+software is copyright Michael Smith
+.Aq mikesmiffy128@gmail.com .

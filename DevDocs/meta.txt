@@ -1,0 +1,5 @@
+This directory might be used for top-level design documentation, implementation
+notes, etc.
+
+Since the project is just getting started (again...), there's not much of that
+to write *yet*, but it's worth designating a place for it. So this is it here.
