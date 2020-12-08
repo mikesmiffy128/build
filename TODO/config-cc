@@ -1,0 +1,4 @@
+Configurable C compiler for bootstrap
+====
+That's currently not supported purely out of laziness; shouldn't be too hard to
+add, say, before release.

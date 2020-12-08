@@ -10,8 +10,9 @@ use libcpoly, my browser-polyfill-except-not-for-browsers:
 
   https://gitlab.com/mikesmiffy128/libcpoly
 
-The bootstrap script will use it as needed if it's available in your include and
-library paths.
+The bootstrap script will use if it's available in your exec, include and
+library paths. If it's not avaialable, it will complain until you install it
+properly.
 
 build is developed and tested on Linux with glibc, but should work under Linux
 with musl, the major BSDs and illumos as well. If it doesn't, that's a bug
@@ -28,6 +29,7 @@ include/ - public headers, to be installed along with the software
 man/     - manual pages to be installed along with the software
 DevDocs/ - notes, rants, random information that might come in handy
 TODO/    - issue tracking, see above
+scripts/ - scripts used as part of the build and testing process
 tools/   - scripts and snippets to support the development of the project
 
 build/   - compilation results - don't edit by hand!

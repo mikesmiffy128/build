@@ -1,3 +1,6 @@
+#include <intdefs.h>
+#include <opt.h>
+
 USAGE("filename1 [filename2 ...]");
 
 int main(int argc, char *argv[]) {

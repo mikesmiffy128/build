@@ -1,0 +1,3 @@
+[submodule "cbits"]
+	path = cbits
+	url = git@gitlab.com:mikesmiffy128/cbits
