@@ -19,8 +19,8 @@ case "$target_os" in
 esac
 
 # TODO(conf-cc) should also get these from env, I spose
-cflags="-O3 -Wall -Wno-parentheses -fpic"
-ldflags="-O3 -fpic"
+cflags="-O3 -Wall -Wno-parentheses -Wno-missing-braces -fpic"
+ldflags="-O3 -fpic -fpie -s"
 test_cflags=
 
 if is_cmd cpoly-config; then
@@ -46,15 +46,24 @@ mkdir -p build/strap/bin build/strap/lib
 
 # XXX could compile separate objects in parallel, I *guess*, but building hardly
 # takes long anyway so not a high priority
-# XXX could also reuse objects, that might be more worthwhile, idunno
+# XXX could also at least reuse objects, that might be more worthwhile, idunno
+num_items=4 # ← remember to change this manually
+is_tty && printf "[0/$num_items] build" || :
 $cc $cflags $extra_cflags $cpoly_cflags $ldflags $extra_ldflags -fpie $cpoly_ldflags \
 -Icbits/include \
+src/blake2b.c \
 src/build.c \
+src/evloop.c \
+src/proc.c \
+src/time.c \
 cbits/src/errorstring.c \
 cbits/src/errmsg.c \
+cbits/src/fmt.c \
 cbits/src/iobuf.c \
+cbits/src/path.c \
 -o build/strap/bin/build
 
+is_tty && printf "\r[K[1/$num_items] build-dep" || :
 $cc $cflags $extra_cflags $cpoly_cflags $ldflags $extra_ldflags -fpie $cpoly_ldflags \
 -Icbits/include \
 src/build-dep.c \
@@ -63,6 +72,7 @@ cbits/src/errmsg.c \
 cbits/src/iobuf.c \
 -o build/strap/bin/build-dep
 
+is_tty && printf "\r[K[2/$num_items] build-infile" || :
 $cc $cflags $extra_cflags $cpoly_cflags $ldflags $extra_ldflags -fpie $cpoly_ldflags \
 -Icbits/include \
 src/build-infile.c \
@@ -71,9 +81,12 @@ cbits/src/errmsg.c \
 cbits/src/iobuf.c \
 -o build/strap/bin/build-infile
 
+is_tty && printf "\r[K[3/$num_items] libbuild" || :
 $cc -shared $cflags $extra_cflags $cpoly_cflags $ldflags $extra_ldflags $cpoly_ldflags \
 -Icbits/include \
 src/libbuild.c \
 -o build/strap/lib/libbuild.so
+
+is_tty && printf "\r[K" || :
 
 # vi: sw=4 ts=4 noet tw=80 cc=80

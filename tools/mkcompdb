@@ -1,0 +1,31 @@
+#!/bin/sh -e
+# This file is dedicated to the public domain.
+
+exec >compile_commands.json
+
+put_entry() {
+	cat <<EOF
+	{
+		"directory": ".",
+		"file": "$1",
+		"command": "clang -c -Wall -pedantic -Wno-parentheses -fparse-all-comments -Icbits/include `cpoly-config` \"$1\""
+	}$2
+EOF
+}
+
+count_entries() { nents=$#; }
+
+put_entries() {
+	for _s in "$@"; do
+		nents=$(($nents-1))
+		_sep=","
+		if [ $nents = 0 ]; then _sep=""; fi
+		put_entry "$_s" "$_sep"
+	done
+}
+echo [
+count_entries src/*.c
+put_entries src/*.c
+echo ]
+
+# vi: sw=4 ts=4 noet tw=80 cc=80

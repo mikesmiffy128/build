@@ -1,0 +1,9 @@
+Do something about infile symlinks
+====
+Initially, it's probably not worth too much fuss to care about this, but
+*technically* if we wanna be super robust we should implicitly note the whole
+symlink trail as an infile, although directory symlinks midway through the path
+can probably be ignored??? Either that or aliased to the real path.
+
+Requires *some* thought, but doesn't have to be well-defined behaviour right
+away - we can just cross the relevant bridge when we get there.

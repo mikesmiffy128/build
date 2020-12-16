@@ -27,7 +27,7 @@ todo() {
 	printf "\n"
 	sed -n '/^====$/,$p' "$_f"
 	printf "====\n\nMentions in project:\n"
-	grep -FRn "TODO($1)"
+	git grep -Fn "TODO($1)" || echo "<none>"
 }
 
 # vi: sw=4 ts=4 noet tw=80 cc=80

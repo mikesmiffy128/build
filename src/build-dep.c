@@ -1,4 +1,3 @@
-#include <intdefs.h>
 #include <opt.h>
 
 USAGE("command...");

@@ -2,4 +2,9 @@
 /.builddb/
 # gimme a place to dump random tests and stuff
 /junk/
+# and don't accidentally commit some random test compile :)
+/a.out
+
+# annoying stuff that ideally wouldn't exist at all :)
+/.ccls-cache/
 /compile_commands.json

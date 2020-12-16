@@ -10,13 +10,13 @@ use libcpoly, my browser-polyfill-except-not-for-browsers:
 
   https://gitlab.com/mikesmiffy128/libcpoly
 
-The bootstrap script will use if it's available in your exec, include and
+The bootstrap script will use it if it's available in your exec, include and
 library paths. If it's not avaialable, it will complain until you install it
 properly.
 
 build is developed and tested on Linux with glibc, but should work under Linux
 with musl, the major BSDs and illumos as well. If it doesn't, that's a bug
-that'll need fixed before release.
+that'll need to be fixed before release.
 
 == PROJECT STRUCTURE ==
 
@@ -28,7 +28,7 @@ test/    - automated tests: sanity checks and regression coverage
 include/ - public headers, to be installed along with the software
 man/     - manual pages to be installed along with the software
 DevDocs/ - notes, rants, random information that might come in handy
-TODO/    - issue tracking, see above
+TODO/    - issue tracking, see below
 scripts/ - scripts used as part of the build and testing process
 tools/   - scripts and snippets to support the development of the project
 
@@ -67,6 +67,9 @@ Then type one of these commands:
   todo issue-identifier
     (lists a particular issue in detail and lists cross-references in code)
 
+(It is also possible to just run tools/todo as its own binary, or put tools/ in
+$PATH. Do whatever is easiest!)
+
 To actually create/edit issues, create a text file named TODO/issue-identifier,
 in the following format:
 
@@ -78,6 +81,16 @@ in the following format:
 To reference issues from inside code:
 
   // TODO(issue-identifier): additional optional context if you want
+
+There is also Vim quickfix integration for those who use Vim/Neovim:
+
+  :so tools/todo.vim
+
+or copy tools/todo.vim into your plugins directory if you want to.
+
+Then you can use :Todo <item> to get a list of source locations and jump to
+them! You can also use :TodoEdit issue-identifier to create or edit a TODO file
+in a new tab.
 
 To close an issue, move it to TODO/.issue-identifier. This hides it, but
 maintains its documentation for reference.

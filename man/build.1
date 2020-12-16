@@ -5,10 +5,12 @@
 .Sh NAME
 .Nm build
 .Nd efficient and flexible build tool
-.Os
+.\" TODO(manpages): abusing .Os, is this okay? idunno
+.Os build
 .Sh SYNOPSIS
 .Nm build
 .Op Fl j Ar jobs_at_once
+.Op Fl C Ar workdir
 .Op Fl B
 .Ar [command...]
 .Sh DESCRIPTION
