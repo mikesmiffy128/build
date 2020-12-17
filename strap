@@ -19,7 +19,7 @@ case "$target_os" in
 esac
 
 # TODO(conf-cc) should also get these from env, I spose
-cflags="-O3 -Wall -Wno-parentheses -Wno-missing-braces -fpic"
+cflags="-O3 -Wall -Wno-parentheses -Wno-missing-braces -Wno-misleading-indentation -fpic"
 ldflags="-O3 -fpic -fpie -s"
 test_cflags=
 

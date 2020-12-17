@@ -22,6 +22,18 @@ if is_cmd clang; then
 		warn "* if something fails to build, update Clang! *"
 		warn "* if you want a reproducible build, you need the exact version! *"
 	fi
+
+	# XXX for now, only trying LLD with Clang as GCC seems to have trouble using
+	# it (undefined symbol main) - other things may not even try to use it
+	# anyway e.g. tcc just ignores
+	if is_cmd ld.lld; then
+		extra_ldflags="$extra_ldflags -fuse-ld=lld"
+	else
+		warn "note: ld.lld is unavailable, using system default linker instead"
+		warn "      This is probably fine, but the project primarily uses LLD"
+		warn "* if you want a reproducible build, you might need to install lld! *"
+		extra_ldflags=""
+	fi
 elif is_cmd gcc; then
 	warn "note: Clang is unavailable, using GCC instead"
 	warn "      This is probably fine, but the project primarily uses Clang"
@@ -35,15 +47,6 @@ else
 	warn "* if something fails to build, install Clang $_clang_ver! *"
 	cc=cc
 	extra_cflags=""
-fi
-
-if is_cmd ld.lld; then
-	extra_ldflags="$extra_ldflags -fuse-ld=lld"
-else
-	warn "note: ld.lld is unavailable, using system default linker instead"
-	warn "      This is probably fine, but the project primarily uses LLD"
-	warn "* if you want a reproducible build, you might need to install lld! *"
-	extra_ldflags=""
 fi
 
 # vi: sw=4 ts=4 noet tw=80 cc=80
