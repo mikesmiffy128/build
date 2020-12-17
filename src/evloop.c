@@ -76,6 +76,7 @@ void evloop_onsig(int sig, void (*cb)(void)) {
 bool evloop_sched(vlong deadline, void (*cb)(void *ctxt), void *ctxt) {
 	struct timer *t = freelist_alloc_timer();
 	if (!t) return false;
+	t->deadline = deadline;
 	t->cb = cb;
 	t->ctxt = ctxt;
 	skiplist_insert_timer(&timers, deadline, t);
@@ -86,9 +87,17 @@ noreturn evloop_run(void) {
 	for (;;) {
 		struct timespec ts;
 		struct timespec *timeout = 0;
-		struct timer *nexttimer = skiplist_pop_timer(&timers);
+		struct timer *nexttimer = timers.x[0]; // XXX should add skiplist_peek!
 		if (nexttimer) {
 			vlong now = time_now();
+			if (nexttimer->deadline <= now) {
+				// deadline passed within the time it took to get here, don't
+				// wait any longer
+				nexttimer->cb(nexttimer->ctxt);
+				skiplist_pop_timer(&timers);
+				freelist_free_timer(nexttimer);
+				continue;
+			}
 			ts = (struct timespec){(nexttimer->deadline - now) / 1000,
 					(nexttimer->deadline - now) % 1000 * 1000000};
 			timeout = &ts;
@@ -102,14 +111,14 @@ noreturn evloop_run(void) {
 				if (sigismember(&gotsigs, p->sig)) p->cb();
 			}
 			sigemptyset((sigset_t *)&gotsigs);
-			continue;
 		}
-		if (polled == 0) {
+		else if (polled == 0) {
 			// nexttimer _has to_ be set, no need to null check again
 			nexttimer->cb(nexttimer->ctxt);
+			skiplist_pop_timer(&timers);
 			freelist_free_timer(nexttimer);
 		}
-		for (int i = 0; polled; ++i) {
+		else for (int i = 0; polled; ++i) {
 			if (pfds[i].revents) {
 				--polled;
 				if (pfds[i].revents & POLLNVAL) {
