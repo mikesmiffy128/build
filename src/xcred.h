@@ -6,11 +6,8 @@
 /*
  * We want to be able to distinguish sender PIDs to multiplex all the tasks'
  * output over the same handful of FDs, to avoid creating a crazy number of FDs.
- * Unfortunately, every system does socket credentials a little differently, and
- * currently only Linux, FreeBSD and NetBSD actually support implicit
- * credentials on regular write() calls (via SO_PASSCRED or LOCAL_CREDS).  Even
- * then it turns out NetBSD and FreeBSD-STABLE don't have the semantics we want
- * so currently only Linux actually allows for this optimisation.
+ * Unfortunately, currently only Linux actually supports the particular
+ * behaviour we want. See DevDocs/passcred.txt for the "fun" juicy details.
  *
  * Basically, this is a very sad header. Possibly a slightly angry header.
  */
@@ -19,7 +16,7 @@
 // this doesn't even get defined without _GNU_SOURCE, which we do not define on
 // principle - so define the struct manually >:(
 struct ucred { unsigned int pid, uid, gid; };
-// SO_PASSCRED is defined, we just use that
+// SO_PASSCRED is defined, we just use that as our flag name
 #define xcred ucred // the struct name (different in literally every OS)
 #define xc_pid pid // the only field we need (*also* different in every OS)
 #elif defined(__FreeBSD__) && defined(LOCAL_CREDS_PERSISTENT)

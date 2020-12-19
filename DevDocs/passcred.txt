@@ -1,0 +1,47 @@
+Q. What the heck is an SO_PASSCRED?
+
+A. It's a setsockopt() option for AF_UNIX sockets under Linux that causes
+   ancillary credential data to be *implicitly* passed with *every* socket
+   message, even on stream sockets. This data includes the PID of the sending
+   process, so we can effectively (mis)use this to multiplex all task output
+   over just 2 socketpairs and still distinguish where stuff came from, instead
+   of creating separate sets of FDs on a per-process basis. Doing so avoids
+   hitting rlimits, uses less memory and wastes less time going through `struct
+   pollfd`s.
+
+Q. Is it supported in any other operating systems?
+A. See comments in src/xcred.h. Brief answer: no, but maybe some day soon.
+   Albeit with different names for everything, because of course.
+
+A quick rant (you have been warned):
+
+UNIX kernel people really need to agree on a standard API for socket
+credentials, because the current situation makes me want to jump out of a
+window.
+
+Linux uses the name `ucred` for its credentials struct, a name that had already
+been used for something else in OpenBSD back in the 90s, so OpenBSD calls it
+`sockpeercred` instead - but this is also different from the NetBSD/FreeBSD
+name, which is simply `sockcred` (not to be confused with the **other** FreeBSD
+struct, `cmsgcred`, which is only used for explicitly sending credentials using
+`sendmsg()`, something which every other OS reuses the same struct for). None of
+these store a PID though, and the BSD LOCAL_CREDS flag has different semantics
+than Linux's SO_PASSCRED (LOCAL_CREDS only applies to one message, not all of
+them), prompting FreeBSD-CURRENT to introduce LOCAL_CREDS_PERSISTENT and yet
+*another* struct, `sockcred2`!!! We'll be able to use that one day, hopefully
+next FreeBSD stable release, but it's unwise to rely on it until then.
+
+Meanwhile, illumos has a totally different mechanism that's not even close to
+ANY of the stuff mentioned above, and I gave up trying to even find
+documentation of what macOS does, but it *appears* that it uses the old FreeBSD
+semantics except with different names for things yet again, for reasons that
+cannot be surmised without the use of *profoundly* unprofessional language.
+
+Oh, and `struct ucred` doesn't actually get defined unless you pretend to be
+part of the GNU Project™, so we resort to defining it manually. You'd think that
+by #including something with `sys/` in front of it you'd waive your right to
+moan about namespace pollution since those headers also define 64 trillion other
+random things and that's never even a problem, but the GNU/Linux™ people REALLY
+want you to use their stupid #define that breaks all the standard functions,
+because Their Functions Are Better!!! Meanwhile, naming a variable `unix` causes
+a compile-time error.
