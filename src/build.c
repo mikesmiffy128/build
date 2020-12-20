@@ -15,29 +15,6 @@
 
 USAGE("[-j jobs_at_once] [-C workdir] [-B] [command...]");
 
-// FIXME temp test code; remove obviously
-static const char *const *TEMP_task1 = (const char *const[]){"sh", "-c", "sleep 1; echo 1", 0};
-static const char *const *TEMP_task2 = (const char *const[]){"sh", "-c", "sleep 1; echo 2", 0};
-static const char *const *TEMP_task3 = (const char *const[]){"sh", "-c", "sleep 1; echo 3", 0};
-static const char *const *TEMP_task4 = (const char *const[]){"sh", "-c", "sleep 1; echo 4", 0};
-static int tasksdone = 0;
-
-static void handle_ev(int evtype, union proc_ev_param P, void *ctxt) {
-	char *name = ctxt;
-	if (evtype == PROC_EV_STDOUT) {
-		errmsg_warnx(name, " stdout:");
-		write(2, P.buf, P.sz);
-	}
-	else if (evtype == PROC_EV_STDERR) {
-		errmsg_warnx(name, " stderr:");
-		write(2, P.buf, P.sz);
-	}
-	else if (evtype == PROC_EV_EXIT) {
-		errmsg_warnx(name, " exited");
-		if (++tasksdone == 4) exit(0);
-	}
-}
-
 // XXX: generally we want to be running one thing at a time per CPU thread, plus
 // all the blocked ones, and then each running job has file descriptors
 // attached, and we only have so many file descriptors (and so much memory)!
@@ -92,12 +69,8 @@ int main(int argc, char *argv[]) {
 	if (mkdir(".builddb", 0755) == -1 && errno != EEXIST) {
 		errmsg_die(100, msg_error, "couldn't create .builddb directory");
 	}
-	proc_init(joblim);
-	proc_start(TEMP_task1, ".", &handle_ev, "task1");
-	proc_start(TEMP_task2, ".", &handle_ev, "task2");
-	proc_start(TEMP_task3, ".", &handle_ev, "task3");
-	proc_start(TEMP_task4, ".", &handle_ev, "task4");
-	// TODO(basic-core) do actual proper setup work here
+	// proc_init(joblim, XXXXXX);
+	// TODO(basic-core) do actual stuff here
 	evloop_run();
 }
 

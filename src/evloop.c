@@ -4,37 +4,29 @@
 #include <stdbool.h>
 #include <unistd.h>
 
-#include <alloc.h>
 #include <errmsg.h>
 #include <intdefs.h>
 #include <noreturn.h>
 #include <skiplist.h>
 
+#include "evloop.h"
 #include "time.h"
 
 #define MAXFDS 4096 // hopefully this is enough!
 
-static int nfds = 0; // upper bound for poll call
+static int nfds = 0; // upper bound for poll() call
 static struct pollfd pfds[MAXFDS] = {0};
 static struct fd_cb {
 	void (*f)(int, short, void *);
 	void *ctxt;
 } fd_cbs[MAXFDS] = {0};
 
-DECL_SKIPLIST(static, timer, struct timer, vlong, 4)
-struct timer {
-	vlong deadline;
-	void (*cb)(void *);
-	void *ctxt;
-	struct skiplist_hdr_timer hdr;
-};
 #define timer_comp(x, y) ((x)->deadline - y)
-#define timer_hdr(x) (&(x)->hdr)
-DEF_SKIPLIST(static, timer, timer_comp, timer_hdr)
-struct skiplist_hdr_timer timers = {0};
-DEF_FREELIST(timer, struct timer, 1024)
+#define timer_hdr(x) (&(x)->_hdr)
+DEF_SKIPLIST(static, _evloop_timer, timer_comp, timer_hdr)
+struct skiplist_hdr__evloop_timer timers = {0};
 
-#define MAXSIGCB 2 // NOTE increase as needed for the program
+#define MAXSIGCB 2 // NOTE: increase as needed for the program
 static sigset_t gotsigs = {0};
 static void onsig(int sig) { sigaddset((sigset_t *)&gotsigs, sig); }
 static struct sig_cb {
@@ -73,29 +65,22 @@ void evloop_onsig(int sig, void (*cb)(void)) {
 	*sig_cbs_tail++ = (struct sig_cb){sig, cb};
 }
 
-bool evloop_sched(vlong deadline, void (*cb)(void *ctxt), void *ctxt) {
-	struct timer *t = freelist_alloc_timer();
-	if (!t) return false;
-	t->deadline = deadline;
-	t->cb = cb;
-	t->ctxt = ctxt;
-	skiplist_insert_timer(&timers, deadline, t);
-	return true;
+void evloop_sched(struct evloop_timer *t) {
+	skiplist_insert__evloop_timer(&timers, t->deadline, t);
 }
 
 noreturn evloop_run(void) {
 	for (;;) {
 		struct timespec ts;
 		struct timespec *timeout = 0;
-		struct timer *nexttimer = timers.x[0]; // XXX should add skiplist_peek!
+		struct evloop_timer *nexttimer = timers.x[0]; // XXX add skiplist_peek!
 		if (nexttimer) {
 			vlong now = time_now();
 			if (nexttimer->deadline <= now) {
 				// deadline passed within the time it took to get here, don't
 				// wait any longer
-				nexttimer->cb(nexttimer->ctxt);
-				skiplist_pop_timer(&timers);
-				freelist_free_timer(nexttimer);
+				nexttimer->cb(nexttimer);
+				skiplist_pop__evloop_timer(&timers);
 				continue;
 			}
 			ts = (struct timespec){(nexttimer->deadline - now) / 1000,
@@ -106,7 +91,7 @@ noreturn evloop_run(void) {
 		if (polled == -1) {
 			// XXX possible robustness issue (what happens to build db, child
 			// processes, etc?)
-			if (errno != EINTR) errmsg_die(200, "couldn't poll events");
+			if (errno != EINTR) errmsg_die(200, "evloop: couldn't poll events");
 			for (struct sig_cb *p = sig_cbs; p != sig_cbs_tail; ++p) {
 				if (sigismember(&gotsigs, p->sig)) p->cb();
 			}
@@ -114,9 +99,8 @@ noreturn evloop_run(void) {
 		}
 		else if (polled == 0) {
 			// nexttimer _has to_ be set, no need to null check again
-			nexttimer->cb(nexttimer->ctxt);
-			skiplist_pop_timer(&timers);
-			freelist_free_timer(nexttimer);
+			nexttimer->cb(nexttimer);
+			skiplist_pop__evloop_timer(&timers);
 		}
 		else for (int i = 0; polled; ++i) {
 			if (pfds[i].revents) {

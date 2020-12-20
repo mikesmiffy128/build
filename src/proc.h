@@ -2,8 +2,13 @@
 #define INC_PROC_H
 
 #include <stdbool.h>
+#include <unistd.h>
 
 #include <intdefs.h>
+
+#include "xcred.h"
+
+struct proc_info;
 
 enum {
 	PROC_EV_STDOUT,
@@ -19,15 +24,36 @@ union proc_ev_param {
 	};
 	int status; /* if PROC_EV_EXIT */
 	// if PROC_EV_UNBLOCK, nothing
-	struct { /* if PROC_EV_ERROR */
-		int XXX; // ???
-	};
+	// if PROC_EV_ERROR, nothing (errno will be set though)
 };
-typedef void (*proc_ev_cb)(int evtype, union proc_ev_param P, void *ctxt);
+typedef void (*proc_ev_cb)(int evtype, union proc_ev_param P,
+		struct proc_info *proc);
 
-void proc_init(int maxparallel);
-bool proc_start(const char *const *argv, const char *workdir, proc_ev_cb cb,
-		void *ctxt);
+/* embeds into another struct, should be treated as opaque/private */
+struct proc_info {
+	pid_t _pid;
+#ifndef SO_PASSCRED
+	int _outsock[2], _errsock[2];
+#endif
+};
+
+void proc_init(int maxparallel, proc_ev_cb ev_cb);
+void proc_start(struct proc_info *proc, const char *const *argv,
+		const char *workdir);
+
+/*
+ * Indicates to the process scheduler that one currently-running process has
+ * stopped doing work for the time being, allowing another process to
+ * potentially be started in its place.
+ */
+void proc_block(void);
+
+/*
+ * Indicates to the process scheduler that a specific blocked process would like
+ * to start doing work again; the event callback will be given PROC_EV_UNBLOCK
+ * when this is permitted to happen.
+ */
+void proc_unblock(struct proc_info *proc);
 
 #endif
 
