@@ -10,8 +10,9 @@
 #include <iobuf.h>
 #include <opt.h>
 
+#include "defs.h"
 #include "evloop.h"
-#include "proc.h"
+#include "task.h"
 
 USAGE("[-j jobs_at_once] [-C workdir] [-B] [command...]");
 
@@ -59,17 +60,17 @@ int main(int argc, char *argv[]) {
 	if (argc) command = (const char *const *)argv;
 
 	close(0);
-	// /dev/null will always take the place of fd 0; don't care about clobbering
-	// old stdin since we never use it anyway (and also die on error anyway)
+	// we don't use stdin anywhere, replace it with /dev/null
 	if (open("/dev/null", O_RDWR) == -1) {
 		errmsg_die(100, msg_fatal, "can't open /dev/null");
 	}
 
 	evloop_init();
-	if (mkdir(".builddb", 0755) == -1 && errno != EEXIST) {
+	if (mkdir(BUILDDB_DIR, 0755) == -1 && errno != EEXIST) {
 		errmsg_die(100, msg_error, "couldn't create .builddb directory");
 	}
-	// proc_init(joblim, XXXXXX);
+	task_init(joblim);
+	task_goal(command, workdir);
 	// TODO(basic-core) do actual stuff here
 	evloop_run();
 }

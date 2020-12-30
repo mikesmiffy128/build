@@ -1,0 +1,11 @@
+Think of ways to optimise .builddb
+====
+There's a bunch of possible ideas ranging from "it's fine already" to really
+complicated memory-mapping schemes. This is a wishlist TODO rather than a
+must-have, but noted down nonetheless just as a reminder for some rainy day in
+the future.
+
+Somewhat-low-ish-hanging fruit:
+* Base64 instead of hex
+* Shared string pool thingy
+* Pool the actual task_result structs together

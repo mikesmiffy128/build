@@ -31,7 +31,7 @@ static struct q {
 		Q_START,
 		Q_UNBLOCK
 	} goal;
-	/* --fill this padding space-- */
+	/* --use this padding space-- */
 	struct proc_info *proc;
 	struct { // if Q_START
 		const char *const *argv;
@@ -56,11 +56,17 @@ static struct table_pid_proc by_pid = {0};
 
 static proc_ev_cb ev_cb;
 
-static void proc_out(int fd, short revents, void *ctxt, int procev) {
-	char buf[4096];
+static void handle_out(int fd, short revents, void *ctxt, int procev) {
+#ifndef SO_PASSCRED
+	if (revents == POLLHUP) {
+		evloop_onfd_remove(fd);
+		close(fd);
+		// return;
+	} // else assume POLLIN
+#endif
+	char buf[16386];
 	int nread;
 #ifdef SO_PASSCRED
-	// TODO(basic-core) stuff...
 	char xcredbuf[CMSG_SPACE(sizeof(struct xcred))];
 	struct iovec iov = {buf, sizeof(buf)};
 	struct msghdr h = {.msg_iov = &iov, .msg_iovlen = 1,
@@ -80,10 +86,10 @@ static void proc_out(int fd, short revents, void *ctxt, int procev) {
 }
 
 static void cb_out(int fd, short revents, void *ctxt) {
-	proc_out(fd, revents, ctxt, PROC_EV_STDOUT);
+	handle_out(fd, revents, ctxt, PROC_EV_STDOUT);
 }
 static void cb_err(int fd, short revents, void *ctxt) {
-	proc_out(fd, revents, ctxt, PROC_EV_STDERR);
+	handle_out(fd, revents, ctxt, PROC_EV_STDERR);
 }
 
 static void do_start(const char *const *argv, const char *workdir,
@@ -164,7 +170,7 @@ e3:	close(errsock(p)[0]); close(errsock(p)[1]);
 e2:	evloop_onfd_remove(outsock(p)[0]);
 e1:	close(outsock(p)[0]); close(outsock(p)[1]);
 #endif
-e:;	return; // XXX FIXME call the callback!
+e:	ev_cb(PROC_EV_ERROR, (union proc_ev_param){0}, proc);
 }
 
 static void do_unblock(struct proc_info *proc) {

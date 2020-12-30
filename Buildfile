@@ -2,3 +2,4 @@
 
 # TODO(selfhost): write this!
 echo use ./strap for now :\(
+exit 220

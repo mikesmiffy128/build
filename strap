@@ -55,6 +55,8 @@ src/blake2b.c \
 src/build.c \
 src/evloop.c \
 src/proc.c \
+src/sigstr.c \
+src/task.c \
 src/time.c \
 cbits/src/errorstring.c \
 cbits/src/errmsg.c \

@@ -1,3 +1,6 @@
 Basic job queueing and dependency tracking
 ====
 Draw some circles first, before trying to draw the rest of the owl.
+
+At this point we have process scheduling basically done, now it's just a matter
+of storing the task results, propagating up-to-date-ness, etc.

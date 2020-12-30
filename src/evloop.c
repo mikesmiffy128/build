@@ -89,9 +89,13 @@ noreturn evloop_run(void) {
 		}
 		int polled = ppoll(pfds, nfds, timeout, &(sigset_t){0});
 		if (polled == -1) {
-			// XXX possible robustness issue (what happens to build db, child
-			// processes, etc?)
-			if (errno != EINTR) errmsg_die(200, "evloop: couldn't poll events");
+			if (errno != EINTR) {
+				// XXX we just *hope* it's a temp error, otherwise we're in some
+				// serious trouble
+				errmsg_warn("evloop: ", msg_temp, "couldn't poll events");
+				errmsg_warnx("evloop: ", msg_note, "sleeping for a moment");
+				sleep(1);
+			}
 			for (struct sig_cb *p = sig_cbs; p != sig_cbs_tail; ++p) {
 				if (sigismember(&gotsigs, p->sig)) p->cb();
 			}

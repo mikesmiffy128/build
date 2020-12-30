@@ -1,0 +1,25 @@
+Some random notes on the task database (task.c)
+
+* Small chunks of string-based data get stored as dangling symlinks: a full read
+  or write is 1 syscall instead of at least 3, and the actual on-disk storage
+  just plonks the data in the inode which is really fast and space-efficient.
+
+* "Newness:" what the heck is newness? Well, if task A depends on task B and B
+  is our goal and gets updated, if we then run with an up-to-date A as a goal
+  then nothing will happen since it doesn't know task B is changed. To solve
+  this, every task has a newness which increases whenever it's updated, and
+  counts towards considering other tasks (the dependents) as out-of-date. Of
+  course, A might have also ran a bunch of times so we can't just increase a
+  per-task counter, we have to maintain a global monotonic counter for the whole
+  dependency database.
+
+  Another option would be to just use a monotonic wall-clock timestamp (ie TAI),
+  but this doesn't actually exist because computers are made by stupid people.
+  Plus the time might be set wrong anyway (see also: why comparing file
+  timestamps on infiles is a bad idea).
+
+* Blake2b hashes: each task's stderr and stdout go to their own files, but we
+  can't just turn the argv/workdir into a filename because argvs can be really,
+  really long and filenames can only be very long. The current solution is to
+  just use a strong hash which should never collide. This has the downside of
+  not making it very obvious which files correspond to which tasks, but oh well.

@@ -103,3 +103,6 @@ get cleaned up, but who cares, cleaning it up is merely a bonus).
 
 "bUt wHAt aBOuT cLOseS iDs In COmMIt MeSsAGeS?!"
 ... just move the file as part of the commit. Stop overcomplicating things.
+
+Oh, also: this project is set up for use with a Language Server such as ccls or
+clangd: `tools/mkcompdb` will generate an appropriate compile_commands.json.

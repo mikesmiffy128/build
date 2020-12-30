@@ -15,7 +15,7 @@ A. See comments in src/xcred.h. Brief answer: no, but maybe some day soon.
 
 A quick rant (you have been warned):
 
-UNIX kernel people really need to agree on a standard API for socket
+Unix kernel people really need to agree on a standard API for socket
 credentials, because the current situation makes me want to jump out of a
 window.
 
