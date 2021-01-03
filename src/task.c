@@ -98,14 +98,16 @@ static inline bool infile_eq(const char *a, const char *b) {
 }
 DEF_TABLE(static, infile, hash_str, infile_eq, table_scalarmemb)
 
+struct vec_int VEC(int);
 /* a currently-running task */
 struct task {
 	struct proc_info base; // must be first member; pointer is casted
 						   // (if moved, would need something like container_of)
 	struct task_desc desc;
 	char id[IDLEN]; // base for filenames and stuff
+	bool haderr; // whether to write "* error output from task `blah blah`"
 	int fd_out, fd_err; // on-disk files to store output
-	struct VEC(int) fds_sendout; // fds from active dependents receiving output
+	struct vec_int fds_sendout; // fds from active dependents receiving output
 	uint nblockers;
 	/* TODO(basic-core) put task deps in here */
 	struct table_infile infiles;
@@ -132,10 +134,12 @@ static void taskid(char out[static IDLEN], struct task_desc *d) {
 static struct task *opentask(struct task_desc d) {
 	struct task *t = freelist_alloc_task();
 	if (t) {
+		t->fds_sendout = (struct vec_int){0};
 		if (!table_init_infile(&t->infiles)) {
 			freelist_free_task(t);
 			return 0;
 		}
+		t->haderr = false;
 		t->desc = d; // FIXME (TEMP) ownership of strings...???
 		// compute the hash once and store it; we'll need it a few times later
 		taskid(t->id, &t->desc);
@@ -156,6 +160,17 @@ e1:	close(t->fd_out);
 e:	free(t->infiles.data); free(t->infiles.flags);
 	freelist_free_task(t);
 	return 0;
+}
+
+static void closetask(struct task *t) {
+	for (const int *p = t->fds_sendout.data;
+			p - t->fds_sendout.data < t->fds_sendout.sz; ++p) {
+		close(*p);
+	}
+	close(t->fd_out); close(t->fd_err);
+	free(t->fds_sendout.data);
+	free(t->infiles.data); free(t->infiles.flags);
+	freelist_free_task(t);
 }
 
 /* a finished task in the database */
@@ -197,6 +212,25 @@ static bool writeall(int fd, const char *buf, uint sz) {
 	return true;
 }
 
+static bool transferall(int diskf, int to) {
+	char buf[16386];
+	uint off = 0, foff = 0;
+	long nread;
+	while (nread = pread(diskf, buf + off, sizeof(buf) - off, foff)) {
+		if (nread == -1) {
+			if (errno == EINTR) continue;
+			return false;
+		}
+		off += nread; foff += nread;
+		if (off == sizeof(buf)) {
+			if (!writeall(to, buf, off)) return false;
+			off = 0;
+		}
+	}
+	return !off || writeall(to, buf, off);
+}
+
+// FIXME this somehow breaks somewhere, figure out why and fix it!
 static inline bool doshellesc(struct str *s, const char *p) {
 	// if there's shell characters, wrap in single quotes, escaping single
 	// quotes specially
@@ -254,6 +288,14 @@ static inline void unblock(struct task *t) {
 
 static void handle_failure(struct task *t) {
 	// TODO(basic-core): propagate failure to dependents, whatever
+	// FIXME REALLY BAD: tell proc to ignore this, or we'll get UAF on cb
+	if (t->haderr) {
+		obuf_put0t(buf_err, "* before failing, the task gave error output:");
+		obuf_flush(buf_err);
+		obuf_reset(buf_err);
+		transferall(t->fd_err, 2);
+	}
+	closetask(t);
 }
 
 static void fail_err(struct task *t) {
@@ -283,11 +325,10 @@ static void fail_badstatus(struct task *t, int status) {
 }
 
 static void done(struct task *t, int status) {
+	char *s = desctostr(&t->desc);
 	if (t->nblockers) {
-		char *s = desctostr(&t->desc);
 		errmsg_warnx(msg_crit, "task `", s, "` finished while supposedly "
-				"blocked, fix your code!");
-		free(s);
+				"blocked - fix your code!");
 	}
 	memcpy(pathbuf + sizeof(BUILDDB_DIR "/") - 1, t->id, IDLEN);
 	pathbuf[sizeof(BUILDDB_DIR "/") - 1 + IDLEN] = ':';
@@ -307,7 +348,17 @@ static void done(struct task *t, int status) {
 		// case* - it's a question of *how* though
 badfs:	errmsg_die(200, msg_fatal, "could not commit task result");
 	}
+	if (t->haderr) {
+		obuf_put0t(buf_err, "* error output from task `");
+		obuf_put0t(buf_err, s);
+		obuf_put0t(buf_err, "`:");
+		obuf_flush(buf_err);
+		obuf_reset(buf_err);
+		transferall(t->fd_err, 2);
+	}
 	// TODO(basic-core): send out the status, unblock things, whatever
+	free(s);
+	closetask(t);
 }
 
 static void proc_cb(int evtype, union proc_ev_param P, struct proc_info *proc) {
@@ -321,7 +372,8 @@ static void proc_cb(int evtype, union proc_ev_param P, struct proc_info *proc) {
 			}
 			break;
 		case PROC_EV_STDERR:
-			if (!writeall(t->fd_out, P.buf, P.sz)) fail_err(t);
+			t->haderr = true;
+			if (!writeall(t->fd_err, P.buf, P.sz)) fail_err(t);
 			break;
 		case PROC_EV_EXIT:
 			if (WIFEXITED(P.status)) {

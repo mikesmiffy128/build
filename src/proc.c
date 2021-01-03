@@ -58,10 +58,11 @@ static proc_ev_cb ev_cb;
 
 static void handle_out(int fd, short revents, void *ctxt, int procev) {
 #ifndef SO_PASSCRED
-	if (revents == POLLHUP) {
+	if (revents & POLLHUP) {
 		evloop_onfd_remove(fd);
-		close(fd);
-		// return;
+		// note: don't close() yet; that gets taken care of when the process
+		// exits and we don't wanna double-close and clobber something else
+		return;
 	} // else assume POLLIN
 #endif
 	char buf[16386];
@@ -80,7 +81,8 @@ static void handle_out(int fd, short revents, void *ctxt, int procev) {
 #else
 	// TODO(basic-core) stuff...
 	while ((nread = recv(fd, buf, sizeof(buf), MSG_DONTWAIT)) > 0) {
-		ev_cb(procev, (union proc_ev_param){buf, nread}, (struct proc *)ctxt);
+		ev_cb(procev, (union proc_ev_param){buf, nread},
+				(struct proc_info *)ctxt);
 	}
 #endif
 }
@@ -112,19 +114,21 @@ static void do_start(const char *const *argv, const char *workdir,
 		}
 	}
 #ifndef SO_PASSCRED
-	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, outsock(p)) == -1) {
+	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0,
+			outsock(proc)) == -1) {
 		errmsg_warn(msg_error, "couldn't create stdout socket for process");
 		goto e;
 	}
-	if (!evloop_onfd(outsock(p)[0], EV_IN, cb_out, p)) {
+	if (!evloop_onfd(outsock(proc)[0], EV_IN, cb_out, proc)) {
 		errmsg_warn(msg_error, "couldn't handle stdout socket events");
 		goto e1;
 	}
-	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, errsock(p)) == -1) {
+	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0,
+			errsock(proc)) == -1) {
 		errmsg_warn(msg_error, "couldn't create stderr socket for process");
 		goto e2;
 	}
-	if (!evloop_onfd(errsock(p)[0], EV_IN, cb_err, p)) {
+	if (!evloop_onfd(errsock(proc)[0], EV_IN, cb_err, proc)) {
 		errmsg_warn(msg_error, "couldn't handle stderr socket events");
 		goto e3;
 	}
@@ -159,16 +163,16 @@ static void do_start(const char *const *argv, const char *workdir,
 	*ent = proc;
 
 #ifndef SO_PASSCRED
-	close(errsock(p)[1]);
-	close(outsock(p)[1]);
+	close(errsock(proc)[1]);
+	close(outsock(proc)[1]);
 #endif
 	return;
 e4:
 #ifndef SO_PASSCRED
-	evloop_onfd_remove(errsock(p)[0]);
-e3:	close(errsock(p)[0]); close(errsock(p)[1]);
-e2:	evloop_onfd_remove(outsock(p)[0]);
-e1:	close(outsock(p)[0]); close(outsock(p)[1]);
+	evloop_onfd_remove(errsock(proc)[0]);
+e3:	close(errsock(proc)[0]); close(errsock(proc)[1]);
+e2:	evloop_onfd_remove(outsock(proc)[0]);
+e1:	close(outsock(proc)[0]); close(outsock(proc)[1]);
 #endif
 e:	ev_cb(PROC_EV_ERROR, (union proc_ev_param){0}, proc);
 }
@@ -194,9 +198,9 @@ static void onchld(void) {
 	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
 		struct proc_info *proc = *table_del_pid_proc(&by_pid, pid);
 #ifndef SO_PASSCRED
-		close(outsock(p)[0]);
+		close(outsock(proc)[0]);
 		evloop_onfd_remove(outsock(proc)[0]);
-		close(errsock(p)[0]);
+		close(errsock(proc)[0]);
 		evloop_onfd_remove(errsock(proc)[0]);
 #endif
 		ev_cb(PROC_EV_EXIT, (union proc_ev_param){.status = status}, proc);

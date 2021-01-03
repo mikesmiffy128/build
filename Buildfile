@@ -1,5 +1,5 @@
 #!/bin/sh -e
 
 # TODO(selfhost): write this!
-echo use ./strap for now :\(
-exit 220
+echo use ./strap for now :\( >&2
+exit 2
