@@ -18,79 +18,30 @@
 
 #include "blake2b.h"
 #include "defs.h"
+#include "fd.h"
 #include "proc.h"
 #include "sigstr.h"
 
 // there's a bunch of initially weird-looking stuff in this file - if you're
 // curious, there's a few insights in DevDocs/taskdb.txt
 
-static uint newness = 0;
+// there's *also* a bunch of ugly hacks that don't have any explanation beyond
+// I'm bad and I'm sorry and I'll clean it up later
 
 #define DBVER 1 // increase if something gets broken!
 
+static uint newness = 0;
+
 static char pathbuf[PATH_MAX] = BUILDDB_DIR "/";
 static char pathbuf2[PATH_MAX] = BUILDDB_DIR "/";
-
-static void symcat(const char *name) {
-	char *p = pathbuf + sizeof(BUILDDB_DIR "/") - 1;
-	for (;;) {
-		*p = *name;
-		if (!*name) break;
-		++name; ++p;
-		if (p - pathbuf == sizeof(pathbuf) - 1) {
-			errmsg_diex(210, "task: symstr key is too long (this is a bug!)");
-		}
-	}
-}
-
-static bool savesymstr(const char *name, const char *val) {
-	// We create a new symlink and rename it to atomically replace the old one.
-	// NOTE: this doesn't bother picking a random new name as it assumes nobody
-	// else is poking around .builddb in parallel with build. Doing that could
-	// break all kinds of things.
-	unlink(BUILDDB_DIR "/symnew"); // unlink in case it was left due to a crash
-	if (symlink(val, BUILDDB_DIR "/symnew") == -1) return false;
-	symcat(name);
-	if (rename(BUILDDB_DIR "/symnew", pathbuf) == -1) {
-		unlink(BUILDDB_DIR "/symnew");
-		return false;
-	}
-	return true;
-}
-
-static bool loadsymstr(const char *name, char *buf, uint sz) {
-	symcat(name);
-	// note: if symlink manages to somehow be longer than PATH_MAX, it'll get
-	// truncated - this should never happen though since we're limited to
-	// PATH_MAX for symlink()
-	long ret = readlink(pathbuf, buf, sz);
-	if (ret == -1) return false;
-	buf[ret] = '\0';
-	return true;
-}
-
-static vlong loadsymnum(const char *name, const char **errstr) {
-	char buf[PATH_MAX];
-	if (!loadsymstr(name, buf, sizeof(buf))) {
-		*errstr = ""; // XXX this is really really stupid and makes me mad
-		return 0;
-	}
-	vlong ret = strtonum(buf, LLONG_MIN, LLONG_MAX, errstr);
-	return ret;
-}
-
-static bool savesymnum(const char *name, vlong val) {
-	char buf[21];
-	buf[fmt_fixed_s64(buf, val)] = '\0';
-	return savesymstr(name, buf);
-}
 
 struct task_desc {
 	const char *const *argv;
 	const char *workdir;
 };
 
-#define IDLEN 128
+#define HASHLEN 32
+#define IDLEN (HASHLEN * 2)
 
 DECL_TABLE(static, infile, const char *, const char *)
 static inline bool infile_eq(const char *a, const char *b) {
@@ -112,20 +63,23 @@ struct task {
 	/* TODO(basic-core) put task deps in here */
 	struct table_infile infiles;
 };
-
 DEF_FREELIST(task, struct task, 1024)
+
+static struct task *goal = 0; // HACK: *super* clumsy way of doing this
+static int goalstatus;
+static int nrunning = 0;
 
 static void taskid(char out[static IDLEN], struct task_desc *d) {
 	static const char hextab[16] = "0123456789ABCDEF";
 	struct blake2b_state s;
-	char buf[BLAKE2B_OUTBYTES];
-	blake2b_init(&s, BLAKE2B_OUTBYTES);
+	char buf[HASHLEN];
+	blake2b_init(&s, sizeof(buf));
 	for (const char *const *argv = d->argv; *argv; ++argv) {
 		blake2b_update(&s, *argv, strlen(*argv) + 1); // +1 -> use null as sep.
 	}
 	blake2b_update(&s, d->workdir, strlen(d->workdir));
 	blake2b_final(&s, buf, BLAKE2B_OUTBYTES);
-	for (const char *p = buf; p - buf < BLAKE2B_OUTBYTES; ++p) {
+	for (const char *p = buf; p - buf < sizeof(buf); ++p) {
 		*out++ = hextab[*(uchar *)p >> 4];
 		*out++ = hextab[*p & 15];
 	}
@@ -171,6 +125,7 @@ static void closetask(struct task *t) {
 	free(t->fds_sendout.data);
 	free(t->infiles.data); free(t->infiles.flags);
 	freelist_free_task(t);
+	if (!--nrunning) exit(goalstatus); // BLEGH. XXX make this less AWFUL.
 }
 
 /* a finished task in the database */
@@ -198,37 +153,6 @@ static inline const struct task_desc *task_result_kmemb(
 }
 DEF_TABLE(static, task_desc_result, hash_task_desc, table_ideq,
 		task_result_kmemb)
-
-static bool writeall(int fd, const char *buf, uint sz) {
-	uint off = 0;
-	while (sz) {
-		long nwritten = write(fd, buf + off, sz);
-		if (nwritten == -1) {
-			if (errno == EINTR) continue;
-			return false;
-		}
-		off += nwritten; sz -= nwritten;
-	}
-	return true;
-}
-
-static bool transferall(int diskf, int to) {
-	char buf[16386];
-	uint off = 0, foff = 0;
-	long nread;
-	while (nread = pread(diskf, buf + off, sizeof(buf) - off, foff)) {
-		if (nread == -1) {
-			if (errno == EINTR) continue;
-			return false;
-		}
-		off += nread; foff += nread;
-		if (off == sizeof(buf)) {
-			if (!writeall(to, buf, off)) return false;
-			off = 0;
-		}
-	}
-	return !off || writeall(to, buf, off);
-}
 
 // FIXME this somehow breaks somewhere, figure out why and fix it!
 static inline bool doshellesc(struct str *s, const char *p) {
@@ -268,17 +192,6 @@ e:	free(s.data);
 	return 0;
 }
 
-static void req(struct task_desc d, int fd_sendout) {
-	// TODO(basic-core): lookup DB, only continue to run if not present/UTD!
-	struct task *t = opentask(d);
-	if (!t) {
-		// TODO(basic-core)/FIXME: appropriate error handling here
-		errmsg_warn("couldn't setup task");
-		return;
-	}
-	proc_start(&t->base, t->desc.argv, t->desc.workdir);
-}
-
 static inline void block(struct task *t) {
 	if (!t->nblockers++) proc_block();
 }
@@ -286,78 +199,16 @@ static inline void unblock(struct task *t) {
 	if (!--(t->nblockers)) proc_unblock(&t->base);
 }
 
-static void handle_failure(struct task *t) {
+static void handle_failure(struct task *t, int status) {
 	// TODO(basic-core): propagate failure to dependents, whatever
-	// FIXME REALLY BAD: tell proc to ignore this, or we'll get UAF on cb
+	// FIXME REALLY BAD: tell proc to ignore this, or we'll get UAF next event
 	if (t->haderr) {
-		obuf_put0t(buf_err, "* before failing, the task gave error output:");
+		obuf_put0t(buf_err, "* task's error output prior to failing:\n");
 		obuf_flush(buf_err);
 		obuf_reset(buf_err);
-		transferall(t->fd_err, 2);
+		fd_transferall(t->fd_err, 2);
 	}
-	closetask(t);
-}
-
-static void fail_err(struct task *t) {
-	int e = errno;
-	char *s = desctostr(&t->desc);
-	errno = e; // if describe fails, welp, too bad
-	errmsg_warn(msg_error, "couldn't process task `", s, "`");
-	free(s);
-	handle_failure(t);
-}
-
-static void fail_sig(struct task *t, int sig) {
-	char *s = desctostr(&t->desc);
-	errmsg_warnx(msg_error, "task `", s, "` was killed by SIG", sigstr(sig));
-	free(s);
-	handle_failure(t);
-}
-
-static void fail_badstatus(struct task *t, int status) {
-	char *s = desctostr(&t->desc);
-	char buf[4];
-	// buf + 0 to dodge the buffer size warning (status can only have 3 digits)
-	buf[fmt_fixed_u32(buf + 0, status)] = '\0';
-	errmsg_warnx(msg_error, "task `", s, "` failed with abnormal status ", buf);
-	free(s);
-	handle_failure(t);
-}
-
-static void done(struct task *t, int status) {
-	char *s = desctostr(&t->desc);
-	if (t->nblockers) {
-		errmsg_warnx(msg_crit, "task `", s, "` finished while supposedly "
-				"blocked - fix your code!");
-	}
-	memcpy(pathbuf + sizeof(BUILDDB_DIR "/") - 1, t->id, IDLEN);
-	pathbuf[sizeof(BUILDDB_DIR "/") - 1 + IDLEN] = ':';
-	pathbuf[sizeof(BUILDDB_DIR "/") - 1 + IDLEN + 1] = 'o';
-	pathbuf[sizeof(BUILDDB_DIR "/") - 1 + IDLEN + 2] = '\0';
-	memcpy(pathbuf2 + sizeof(BUILDDB_DIR "/") - 1, t->id, IDLEN);
-	pathbuf2[sizeof(BUILDDB_DIR "/") - 1 + IDLEN] = ':';
-	pathbuf2[sizeof(BUILDDB_DIR "/") - 1 + IDLEN + 1] = 'O';
-	pathbuf2[sizeof(BUILDDB_DIR "/") - 1 + IDLEN + 2] = '\0';
-	if (rename(pathbuf, pathbuf2) == -1) goto badfs;
-	pathbuf[sizeof(BUILDDB_DIR "/") - 1 + IDLEN + 1] = 'e';
-	pathbuf2[sizeof(BUILDDB_DIR "/") - 1 + IDLEN + 1] = 'E';
-	if (rename(pathbuf, pathbuf2) == -1) {
-		// XXX *apparently* this can only fail in absolutely catastrophic
-		// circumstances (i.e. the filesystem implementation is missing), but
-		// a less lazy me could *still* try to make it more robust *just in
-		// case* - it's a question of *how* though
-badfs:	errmsg_die(200, msg_fatal, "could not commit task result");
-	}
-	if (t->haderr) {
-		obuf_put0t(buf_err, "* error output from task `");
-		obuf_put0t(buf_err, s);
-		obuf_put0t(buf_err, "`:");
-		obuf_flush(buf_err);
-		obuf_reset(buf_err);
-		transferall(t->fd_err, 2);
-	}
-	// TODO(basic-core): send out the status, unblock things, whatever
-	free(s);
+	if (t == goal) goalstatus = status; // yuck
 	closetask(t);
 }
 
@@ -365,54 +216,143 @@ static void proc_cb(int evtype, union proc_ev_param P, struct proc_info *proc) {
 	struct task *t = (struct task *)proc;
 	switch (evtype) {
 		case PROC_EV_STDOUT:
-			if (!writeall(t->fd_out, P.buf, P.sz)) { fail_err(t); return; }
+			if (!fd_writeall(t->fd_out, P.buf, P.sz)) goto fail;
 			for (const int *p = t->fds_sendout.data;
 					p - t->fds_sendout.data < t->fds_sendout.sz; ++p) {
-				if (!writeall(*p, P.buf, P.sz)) { fail_err(t); return; }
+				if (!fd_writeall(*p, P.buf, P.sz)) goto fail;
 			}
 			break;
 		case PROC_EV_STDERR:
 			t->haderr = true;
-			if (!writeall(t->fd_err, P.buf, P.sz)) fail_err(t);
+			if (!fd_writeall(t->fd_err, P.buf, P.sz)) goto fail;
 			break;
 		case PROC_EV_EXIT:
 			if (WIFEXITED(P.status)) {
-				if (WEXITSTATUS(P.status) < 100) done(t, WEXITSTATUS(P.status));
-				else fail_badstatus(t, WEXITSTATUS(P.status));
+				if (WEXITSTATUS(P.status) < 100) {
+					char *s = desctostr(&t->desc);
+					if (t->nblockers) {
+						errmsg_warnx(msg_crit, "task `", s, "` finished while "
+								"supposedly blocked - fix your code!");
+					}
+					memcpy(pathbuf + sizeof(BUILDDB_DIR "/") - 1, t->id, IDLEN);
+					pathbuf[sizeof(BUILDDB_DIR "/") - 1 + IDLEN] = ':';
+					pathbuf[sizeof(BUILDDB_DIR "/") - 1 + IDLEN + 1] = 'o';
+					pathbuf[sizeof(BUILDDB_DIR "/") - 1 + IDLEN + 2] = '\0';
+					memcpy(pathbuf2 + sizeof(BUILDDB_DIR "/") - 1, t->id, IDLEN);
+					pathbuf2[sizeof(BUILDDB_DIR "/") - 1 + IDLEN] = ':';
+					pathbuf2[sizeof(BUILDDB_DIR "/") - 1 + IDLEN + 1] = 'O';
+					pathbuf2[sizeof(BUILDDB_DIR "/") - 1 + IDLEN + 2] = '\0';
+					if (rename(pathbuf, pathbuf2) == -1) goto badfs;
+					pathbuf[sizeof(BUILDDB_DIR "/") - 1 + IDLEN + 1] = 'e';
+					pathbuf2[sizeof(BUILDDB_DIR "/") - 1 + IDLEN + 1] = 'E';
+					if (rename(pathbuf, pathbuf2) == -1) {
+						// XXX this should basically NEVER fail but wouldn't
+						// hurt to still try to be more robust
+badfs:					errmsg_die(200, msg_fatal, "couldn't save task result");
+					}
+					if (t->haderr) {
+						obuf_put0t(buf_err, "* error output from task `");
+						obuf_put0t(buf_err, s);
+						obuf_put0t(buf_err, "`:\n");
+						obuf_flush(buf_err);
+						obuf_reset(buf_err);
+						fd_transferall(t->fd_err, 2);
+					}
+					// TODO(basic-core): send out the status, unblock things, whatever
+					free(s);
+					if (t == goal) goalstatus = WEXITSTATUS(P.status);
+					closetask(t);
+				}
+				else {
+					char *s = desctostr(&t->desc);
+					char buf[4];
+					// buf + 0 to dodge the [static] - status has <= 3 digits
+					buf[fmt_fixed_u32(buf + 0, WEXITSTATUS(P.status))] = '\0';
+					errmsg_warnx(msg_error, "task `", s,
+							"` failed with abnormal status ", buf);
+					free(s);
+					handle_failure(t, WEXITSTATUS(P.status));
+				}
 			}
 			else if (WIFSIGNALED(P.status)) {
-				fail_sig(t, WTERMSIG(P.status));
+				char *s = desctostr(&t->desc);
+				errmsg_warnx(msg_error, "task `", s, "` was killed by SIG",
+						sigstr(WTERMSIG(P.status)));
+				free(s);
+				handle_failure(t, 128 + WTERMSIG(P.status));
 			}
+			// just ignore process suspension
 			break;
 		case PROC_EV_UNBLOCK:
 			// TODO(basic-core): IPC stuff here
 			break;
 		case PROC_EV_ERROR:
-			fail_err(t);
+fail:;		int e = errno;
+			char *s = desctostr(&t->desc);
+			errno = e; // if describe fails, welp, too bad
+			errmsg_warn(msg_error, "couldn't process task `", s, "`");
+			free(s);
+			handle_failure(t, 100);
 			break;
 	}
 }
 
+static void symcat(const char *name) {
+	for (char *p = pathbuf + sizeof(BUILDDB_DIR "/") - 1; *p++ = *name++;);
+}
+
+static bool savesymstr(const char *name, const char *val) {
+	// create a new symlink and rename it to atomically replace the old one
+	// NOTE: this could break if someone is poking around .builddb at the same
+	// time. adequate solution: don't do that.
+	unlink(BUILDDB_DIR "/symnew"); // unlink in case it was left due to a crash
+	if (symlink(val, BUILDDB_DIR "/symnew") == -1) return false;
+	symcat(name);
+	if (rename(BUILDDB_DIR "/symnew", pathbuf) == -1) {
+		unlink(BUILDDB_DIR "/symnew");
+		return false;
+	}
+	return true;
+}
+
+static bool loadsymstr(const char *name, char *buf, uint sz) {
+	symcat(name);
+	long ret = readlink(pathbuf, buf, sz);
+	if (ret == -1) return false;
+	buf[ret] = '\0';
+	return true;
+}
+
+static bool savesymnum(const char *name, vlong val) {
+	char buf[21];
+	buf[fmt_fixed_s64(buf, val)] = '\0';
+	return savesymstr(name, buf);
+}
+
+static vlong loadsymnum(const char *name, const char **errstr) {
+	char buf[PATH_MAX];
+	if (!loadsymstr(name, buf, sizeof(buf))) return 0;
+	vlong ret = strtonum(buf, LLONG_MIN, LLONG_MAX, errstr);
+	return ret;
+}
+
 void task_init(int maxparallel) {
+	// XXX this error handling is far from perfect in terms of simplicity
 	const char *errstr = 0;
-	// this can overflow, but who cares
-	int dbversion = loadsymnum("version", &errstr);
-	// XXX this error handling is a convoluted spider web full of spiders
-	if (errstr) {
-		if (errno == ENOENT) {
-			dbversion = DBVER;
-			if (!savesymnum("version", DBVER)) {
-				errmsg_die(100, msg_fatal, "couldn't create task database");
-			}
+	errno = 0;
+	int dbversion = loadsymnum("version", &errstr); // ignore overflow, shrug
+	if (errno == ENOENT) {
+		dbversion = DBVER;
+		if (!savesymnum("version", DBVER)) {
+			errmsg_die(100, msg_fatal, "couldn't create task database");
 		}
-		else if (errno == ERANGE || errno == EINVAL) {
-			// this can only actually happen if the user has boundary issues
-			// and messes with stuff for no reason
-			errmsg_diex(1, msg_fatal, "task database version is ", errstr);
-		}
-		else {
-			errmsg_die(100, msg_fatal, "couldn't read task database version");
-		}
+	}
+	else if (errno == ERANGE || errno == EINVAL) {
+		// status 1: user has messed with something, not our fault!
+		errmsg_diex(1, msg_fatal, "task database version is ", errstr);
+	}
+	else if (errno) {
+		errmsg_die(100, msg_fatal, "couldn't read task database version");
 	}
 	else if (dbversion != DBVER) {
 		// can add migration or something later if we actually bump the
@@ -421,27 +361,36 @@ void task_init(int maxparallel) {
 				"try rm -rf .builddb/");
 	}
 	errstr = 0;
-	// this can overflow again, but again just assume it's not an issue
-	// (nobody's gonna run 4 billion builds. surely. right?)
-	newness = loadsymnum("newness", &errstr);
-	if (errstr) {
-		if (errno == ERANGE || errno == EINVAL) {
-			errmsg_diex(1, msg_fatal, "global task newness value is ", errstr);
-		}
-		else if (errno != ENOENT) {
-			errmsg_die(100, "couldn't read task database version");
-		}
+	errno = 0;
+	newness = loadsymnum("newness", &errstr); // ignore overflow, shrug again
+	if (errno == ERANGE || errno == EINVAL) {
+		errmsg_diex(1, msg_fatal, "global task newness value is ", errstr);
 	}
-	// we want to *immediately* increase newness before building anything, this
-	// way if there's a crash or something it won't wreck the build state
+	else if (errno && errno != ENOENT) {
+		errmsg_die(100, "couldn't read task database version");
+	}
+	// bump newness immediately: if we crash, later rebuilds won't be prevented
 	if (!savesymnum("newness", newness + 1)) {
 		errmsg_die(100, msg_fatal, "couldn't update task database");
 	}
 	proc_init(maxparallel, &proc_cb);
 }
 
+static void req(struct task_desc d, int fd_sendout, bool isgoal) {
+	// TODO(basic-core): lookup DB, only continue to run if not present/UTD!
+	struct task *t = opentask(d);
+	if (isgoal) goal = t;
+	if (!t) {
+		// TODO(basic-core)/FIXME: appropriate error handling here
+		errmsg_warn("couldn't setup task");
+		return;
+	}
+	proc_start(&t->base, t->desc.argv, t->desc.workdir);
+	++nrunning;
+}
+
 void task_goal(const char *const *argv, const char *workdir) {
-	req((struct task_desc){argv, workdir}, 1);
+	req((struct task_desc){argv, workdir}, 1, true);
 }
 
 // vi: sw=4 ts=4 noet tw=80 cc=80
