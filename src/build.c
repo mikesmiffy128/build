@@ -67,7 +67,7 @@ int main(int argc, char *argv[]) {
 
 	evloop_init();
 	if (mkdir(BUILDDB_DIR, 0755) == -1 && errno != EEXIST) {
-		errmsg_die(100, msg_error, "couldn't create .builddb directory");
+		errmsg_die(100, msg_fatal, "couldn't create .builddb directory");
 	}
 	task_init(joblim);
 	task_goal(command, workdir);

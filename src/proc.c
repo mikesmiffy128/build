@@ -1,3 +1,4 @@
+#include <limits.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <sys/socket.h>
@@ -13,6 +14,7 @@
 #include <noreturn.h>
 #include <table.h>
 
+#include "defs.h"
 #include "evloop.h"
 #include "proc.h"
 
@@ -46,6 +48,14 @@ static struct table_pid_proc by_pid = {0};
 
 static proc_ev_cb ev_cb;
 
+static void do_io(int fd, struct proc_info *p, int procev) {
+	char buf[16386];
+	int nread;
+	while ((nread = recv(fd, buf, sizeof(buf), MSG_DONTWAIT)) > 0) {
+		ev_cb(procev, (union proc_ev_param){buf, nread}, p);
+	}
+}
+
 static void handle_out(int fd, short revents, void *ctxt, int procev) {
 	if (revents & POLLHUP) {
 		evloop_onfd_remove(fd);
@@ -53,20 +63,40 @@ static void handle_out(int fd, short revents, void *ctxt, int procev) {
 		// exits and we don't wanna double-close and clobber something else
 		return;
 	} // else assume POLLIN
-	// TODO(basic-core) stuff...
-	char buf[16386];
-	int nread;
-	while ((nread = recv(fd, buf, sizeof(buf), MSG_DONTWAIT)) > 0) {
-		ev_cb(procev, (union proc_ev_param){buf, nread},
-				(struct proc_info *)ctxt);
-	}
+	do_io(fd, (struct proc_info *)ctxt, procev);
 }
-
 static void cb_out(int fd, short revents, void *ctxt) {
 	handle_out(fd, revents, ctxt, PROC_EV_STDOUT);
 }
 static void cb_err(int fd, short revents, void *ctxt) {
 	handle_out(fd, revents, ctxt, PROC_EV_STDERR);
+}
+
+static char **procenv;
+
+static char rootdirvar[sizeof(ENV_ROOT_DIR "=") - 1 + PATH_MAX] =
+		ENV_ROOT_DIR "=";
+// NOTE: dir MUST be canonicalised (see fixme below)
+static void setrootdirvar(const char *dir) {
+	char *p = rootdirvar + sizeof(ENV_ROOT_DIR "=") - 1;
+	if (dir[0] == '.' && dir[1] == '\0') {
+		p[0] = '.';
+		p[1] = '\0';
+		return;
+	}
+	*p++ = '.';
+	*p++ = '.';
+	for (; *dir; ++dir) if (*dir == '/') {
+		*p++ = '/';
+		*p++ = '.';
+		*p++ = '.';
+	}
+	*p = '\0';
+}
+
+static char sockfdvar[sizeof(ENV_SOCKFD "=") - 1 + 11] = ENV_SOCKFD;
+static void setsockfdvar(int fd) {
+	// TODO(basic-core): ipc init...
 }
 
 static void do_start(const char *const *argv, const char *workdir,
@@ -106,6 +136,8 @@ static void do_start(const char *const *argv, const char *workdir,
 		errmsg_warn(msg_error, "couldn't handle stderr socket events");
 		goto e3;
 	}
+	setrootdirvar(workdir);
+	// setsockfdvar(???);
 	proc->_pid = vfork();
 	if (proc->_pid == -1) {
 		errmsg_warn(msg_error, "couldn't fork new process");
@@ -118,13 +150,17 @@ static void do_start(const char *const *argv, const char *workdir,
 		if (chdir(workdir) == -1) {
 			errmsg_warn("child: ", msg_fatal, "couldn't enter directory ",
 					workdir);
-			_exit(200);
+			goto ce;
 		}
 		dup2(proc->_outsock[1], 1);
 		dup2(proc->_errsock[1], 2);
-		// TODO(basic-core) put build fds in env
-		execve(prog, (char *const *)argv, environ);
+		execve(prog, (char *const *)argv, procenv);
 		errmsg_warn("child: ", msg_fatal, "couldn't exec ", prog);
+ce:		if (errno == ENOENT || errno == EPERM) {
+			// we can actually cache this result, there's still an infile!
+			_exit(2);
+		}
+		// otherwise it's an abnormal error, we should try again later
 		_exit(100);
 	}
 	++nactive;
@@ -163,11 +199,14 @@ static void qpop(void) {
 
 static void onchld(void) {
 	pid_t pid; int status;
-	// FIXME flush all io before closing, or something (use brain)
 	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
 		struct proc_info *proc = *table_del_pid_proc(&by_pid, pid);
+		// in case we got SIGCHLD right as IO happened, flush out the buffers
+		// a final time before closing
+		do_io(proc->_outsock[0], proc, PROC_EV_STDOUT);
 		close(proc->_outsock[0]);
 		evloop_onfd_remove(proc->_outsock[0]);
+		do_io(proc->_errsock[0], proc, PROC_EV_STDERR);
 		close(proc->_errsock[0]);
 		evloop_onfd_remove(proc->_errsock[0]);
 		ev_cb(PROC_EV_EXIT, (union proc_ev_param){.status = status}, proc);
@@ -179,14 +218,23 @@ static void onchld(void) {
 void proc_init(int maxparallel_, proc_ev_cb cb) {
 	maxparallel = maxparallel_;
 	ev_cb = cb;
+	ulong envsz = 0;
+	for (char **pp = environ; *pp; ++pp) ++envsz;
+	procenv = malloc((envsz + 3) * sizeof(*environ));
+	if (!procenv) errmsg_die(100, msg_fatal, "couldn't allocate environment");
+	memcpy(procenv, environ, sizeof(*environ) * envsz);
+	procenv[envsz] = rootdirvar;
+	procenv[envsz + 1] = sockfdvar;
+	procenv[envsz + 2] = 0;
 	evloop_onsig(SIGCHLD, &onchld);
 	if (!table_init_pid_proc(&by_pid)) {
-		errmsg_die(100, msg_error, "couldn't allocate hashtable");
+		errmsg_die(100, msg_fatal, "couldn't allocate hashtable");
 	}
 }
 
 void proc_start(struct proc_info *proc, const char *const *argv,
 		const char *workdir) {
+	// FIXME canonicalise workdir (it is *assumed* to be canonical until then)
 	if (nactive < maxparallel) {
 		do_start(argv, workdir, proc);
 	}
