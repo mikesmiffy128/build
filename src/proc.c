@@ -15,16 +15,6 @@
 
 #include "evloop.h"
 #include "proc.h"
-#include "xcred.h"
-
-#ifdef SO_PASSCRED
-static int _outsock[2], _errsock[2];
-static inline int *outsock(struct proc_info *proc) { return _outsock; }
-static inline int *errsock(struct proc_info *proc) { return _errsock; }
-#else
-static inline int *outsock(struct proc_info *proc) { return proc->_outsock; }
-static inline int *errsock(struct proc_info *proc) { return proc->_errsock; }
-#endif
 
 static struct q {
 	enum {
@@ -57,34 +47,19 @@ static struct table_pid_proc by_pid = {0};
 static proc_ev_cb ev_cb;
 
 static void handle_out(int fd, short revents, void *ctxt, int procev) {
-#ifndef SO_PASSCRED
 	if (revents & POLLHUP) {
 		evloop_onfd_remove(fd);
 		// note: don't close() yet; that gets taken care of when the process
 		// exits and we don't wanna double-close and clobber something else
 		return;
 	} // else assume POLLIN
-#endif
+	// TODO(basic-core) stuff...
 	char buf[16386];
 	int nread;
-#ifdef SO_PASSCRED
-	char xcredbuf[CMSG_SPACE(sizeof(struct xcred))];
-	struct iovec iov = {buf, sizeof(buf)};
-	struct msghdr h = {.msg_iov = &iov, .msg_iovlen = 1,
-			.msg_control = xcredbuf, .msg_controllen = sizeof(xcredbuf)};
-	while ((nread = recvmsg(fd, &h, MSG_DONTWAIT)) > 0) {
-		struct cmsghdr *m = CMSG_FIRSTHDR(&h);
-		pid_t pid = ((struct xcred *)CMSG_DATA(m))->xc_pid;
-		struct proc_info *proc = *table_get_pid_proc(&by_pid, pid);
-		ev_cb(procev, (union proc_ev_param){buf, nread}, proc);
-	}
-#else
-	// TODO(basic-core) stuff...
 	while ((nread = recv(fd, buf, sizeof(buf), MSG_DONTWAIT)) > 0) {
 		ev_cb(procev, (union proc_ev_param){buf, nread},
 				(struct proc_info *)ctxt);
 	}
-#endif
 }
 
 static void cb_out(int fd, short revents, void *ctxt) {
@@ -113,26 +88,24 @@ static void do_start(const char *const *argv, const char *workdir,
 			goto e;
 		}
 	}
-#ifndef SO_PASSCRED
 	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0,
-			outsock(proc)) == -1) {
+			proc->_outsock) == -1) {
 		errmsg_warn(msg_error, "couldn't create stdout socket for process");
 		goto e;
 	}
-	if (!evloop_onfd(outsock(proc)[0], EV_IN, cb_out, proc)) {
+	if (!evloop_onfd(proc->_outsock[0], EV_IN, cb_out, proc)) {
 		errmsg_warn(msg_error, "couldn't handle stdout socket events");
 		goto e1;
 	}
 	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0,
-			errsock(proc)) == -1) {
+			proc->_errsock) == -1) {
 		errmsg_warn(msg_error, "couldn't create stderr socket for process");
 		goto e2;
 	}
-	if (!evloop_onfd(errsock(proc)[0], EV_IN, cb_err, proc)) {
+	if (!evloop_onfd(proc->_errsock[0], EV_IN, cb_err, proc)) {
 		errmsg_warn(msg_error, "couldn't handle stderr socket events");
 		goto e3;
 	}
-#endif
 	proc->_pid = vfork();
 	if (proc->_pid == -1) {
 		errmsg_warn(msg_error, "couldn't fork new process");
@@ -147,8 +120,8 @@ static void do_start(const char *const *argv, const char *workdir,
 					workdir);
 			_exit(200);
 		}
-		dup2(outsock(proc)[1], 1);
-		dup2(errsock(proc)[1], 2);
+		dup2(proc->_outsock[1], 1);
+		dup2(proc->_errsock[1], 2);
 		// TODO(basic-core) put build fds in env
 		execve(prog, (char *const *)argv, environ);
 		errmsg_warn("child: ", msg_fatal, "couldn't exec ", prog);
@@ -162,18 +135,14 @@ static void do_start(const char *const *argv, const char *workdir,
 	if (!ent) errmsg_die(200, msg_fatal, "couldn't store process information");
 	*ent = proc;
 
-#ifndef SO_PASSCRED
-	close(errsock(proc)[1]);
-	close(outsock(proc)[1]);
-#endif
+	close(proc->_errsock[1]);
+	close(proc->_outsock[1]);
 	return;
 e4:
-#ifndef SO_PASSCRED
-	evloop_onfd_remove(errsock(proc)[0]);
-e3:	close(errsock(proc)[0]); close(errsock(proc)[1]);
-e2:	evloop_onfd_remove(outsock(proc)[0]);
-e1:	close(outsock(proc)[0]); close(outsock(proc)[1]);
-#endif
+	evloop_onfd_remove(proc->_errsock[0]);
+e3:	close(proc->_errsock[0]); close(proc->_errsock[1]);
+e2:	evloop_onfd_remove(proc->_outsock[0]);
+e1:	close(proc->_outsock[0]); close(proc->_outsock[1]);
 e:	ev_cb(PROC_EV_ERROR, (union proc_ev_param){0}, proc);
 }
 
@@ -197,12 +166,10 @@ static void onchld(void) {
 	// FIXME flush all io before closing, or something (use brain)
 	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
 		struct proc_info *proc = *table_del_pid_proc(&by_pid, pid);
-#ifndef SO_PASSCRED
-		close(outsock(proc)[0]);
-		evloop_onfd_remove(outsock(proc)[0]);
-		close(errsock(proc)[0]);
-		evloop_onfd_remove(errsock(proc)[0]);
-#endif
+		close(proc->_outsock[0]);
+		evloop_onfd_remove(proc->_outsock[0]);
+		close(proc->_errsock[0]);
+		evloop_onfd_remove(proc->_errsock[0]);
 		ev_cb(PROC_EV_EXIT, (union proc_ev_param){.status = status}, proc);
 		--nactive;
 		qpop();
@@ -216,31 +183,6 @@ void proc_init(int maxparallel_, proc_ev_cb cb) {
 	if (!table_init_pid_proc(&by_pid)) {
 		errmsg_die(100, msg_error, "couldn't allocate hashtable");
 	}
-
-#ifdef SO_PASSCRED
-	// if we have cred support we can share sockets between tasks, otherwise we
-	// need 2 pairs of FDs per task (in addition to the control sockets we
-	// already have)
-	// btw, using socket rather than pipe even when not doing cred stuff because
-	// it has MSG_DONTWAIT which avoids various O_NONBLOCK faff
-	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, _outsock) == -1 ||
-			socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, _errsock) == -1) {
-		errmsg_die(100, msg_fatal, "couldn't create socket");
-	}
-	if (setsockopt(_outsock[0], SOL_SOCKET, SO_PASSCRED, &(int){1},
-				sizeof(int)) == -1 ||
-			setsockopt(_errsock[0], SOL_SOCKET, SO_PASSCRED, &(int){1},
-					sizeof(int)) == -1) { // XXX this if is really ugly
-		errmsg_die(100, msg_fatal, "couldn't set socket options");
-	}
-	if (!evloop_onfd(_outsock[0], EV_IN, &cb_out, 0) ||
-			!evloop_onfd(_errsock[0], EV_IN, &cb_err, 0)) {
-		errmsg_die(100, msg_fatal, "couldn't handle socket events");
-	}
-#else
-	// let's take the opportunity to complain here, because I like complaining
-	#warning Your OS has no SO_PASSCRED equivalent; build will use many more FDs
-#endif
 }
 
 void proc_start(struct proc_info *proc, const char *const *argv,

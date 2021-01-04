@@ -6,8 +6,6 @@
 
 #include <intdefs.h>
 
-#include "xcred.h"
-
 struct proc_info;
 
 enum {
@@ -32,9 +30,7 @@ typedef void (*proc_ev_cb)(int evtype, union proc_ev_param P,
 /* embeds into another struct, should be treated as opaque/private */
 struct proc_info {
 	pid_t _pid;
-#ifndef SO_PASSCRED
 	int _outsock[2], _errsock[2];
-#endif
 };
 
 void proc_init(int maxparallel, proc_ev_cb ev_cb);
