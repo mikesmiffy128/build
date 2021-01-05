@@ -8,7 +8,6 @@ const char *sigstr(int sig) {
 		fmt_fixed_u32(rtbuf + 2, sig - SIGRTMAX + 1);
 		return rtbuf;
 	}
-
 	switch (sig) {
 		case SIGABRT: return "ABRT";
 		case SIGALRM: return "ALRM";
@@ -112,7 +111,6 @@ const char *sigstr(int sig) {
 		case SIGXCPU: return "XCPU";
 		case SIGXFSZ: return "XFSZ";
 	}
-
 	return "UNKNOWN"; // better than nothing
 }
 

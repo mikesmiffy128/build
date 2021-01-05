@@ -52,14 +52,12 @@ static const u8 blake2b_sigma[12][16] = {
 	{ 14, 10,  4,  8,  9, 15, 13,  6,  1, 12,  0,  2, 11,  7,  5,  3 }
 };
 
-
 static void blake2b_set_lastnode(struct blake2b_state *S) {
 	S->f[1] = (u64)-1;
 }
 
 static void blake2b_set_lastblock(struct blake2b_state *S) {
 	if (S->last_node) blake2b_set_lastnode(S);
-
 	S->f[0] = (u64)-1;
 }
 
@@ -69,10 +67,8 @@ static void blake2b_increment_counter(struct blake2b_state *S, const u64 inc) {
 }
 
 static void blake2b_init0(struct blake2b_state *S) {
-	ulong i;
 	memset(S, 0, sizeof(struct blake2b_state));
-
-	for (i = 0; i < 8; ++i) S->h[i] = blake2b_IV[i];
+	for (int i = 0; i < 8; ++i) S->h[i] = blake2b_IV[i];
 }
 
 /* init xors IV with input parameter block */
@@ -84,9 +80,9 @@ void blake2b_init_param(struct blake2b_state *S, const struct blake2b_param *P) 
 	S->outlen = P->digest_length;
 }
 
-void blake2b_init(struct blake2b_state *S, ulong outlen) {
+void blake2b_init(struct blake2b_state *S, u8 outlen) {
 	struct blake2b_param P;
-	P.digest_length = (u8)outlen;
+	P.digest_length = outlen;
 	P.key_length = 0;
 	P.fanout = 1;
 	P.depth = 1;
@@ -101,11 +97,11 @@ void blake2b_init(struct blake2b_state *S, ulong outlen) {
 	blake2b_init_param(S, &P);
 }
 
-void blake2b_init_key(struct blake2b_state *S, ulong outlen, const void *key,
-		ulong keylen) {
+void blake2b_init_key(struct blake2b_state *S, u8 outlen, const void *key,
+		u8 keylen) {
 	struct blake2b_param P;
-	P.digest_length = (u8)outlen;
-	P.key_length = (u8)keylen;
+	P.digest_length = outlen;
+	P.key_length = keylen;
 	P.fanout = 1;
 	P.depth = 1;
 	store32(&P.leaf_length, 0);
@@ -191,23 +187,20 @@ void blake2b_update(struct blake2b_state *S, const void *pin, ulong inlen) {
 	}
 }
 
-void blake2b_final(struct blake2b_state *S, void *out, ulong outlen) {
+void blake2b_final(struct blake2b_state *S, void *out, u8 outlen) {
 	u8 buffer[BLAKE2B_OUTBYTES] = {0};
-
 	blake2b_increment_counter(S, S->buflen);
 	blake2b_set_lastblock(S);
 	memset(S->buf + S->buflen, 0, BLAKE2B_BLOCKBYTES - S->buflen); /* Padding */
 	blake2b_compress(S, S->buf);
-
 	/* Output full hash to temp buffer */
 	for (int i = 0; i < 8; ++i) store64(buffer + sizeof(S->h[i]) * i, S->h[i]);
-
 	memcpy(out, buffer, S->outlen);
 	explicit_bzero(buffer, sizeof(buffer));
 }
 
-void blake2b(void *out, ulong outlen, const void *in, ulong inlen,
-		const void *key, ulong keylen) {
+void blake2b(void *out, u8 outlen, const void *in, ulong inlen, const void *key,
+		u8 keylen) {
 	struct blake2b_state S;
 	if (keylen > 0) blake2b_init_key(&S, outlen, key, keylen);
 	else blake2b_init(&S, outlen);

@@ -30,18 +30,13 @@
 
 #define DBVER 1 // increase if something gets broken!
 
-static uint newness = 0;
-
-static char pathbuf[PATH_MAX] = BUILDDB_DIR "/";
-static char pathbuf2[PATH_MAX] = BUILDDB_DIR "/";
+#define HASHLEN 32
+#define IDLEN (HASHLEN * 2)
 
 struct task_desc {
 	const char *const *argv;
 	const char *workdir;
 };
-
-#define HASHLEN 32
-#define IDLEN (HASHLEN * 2)
 
 DECL_TABLE(static, infile, const char *, const char *)
 static inline bool infile_eq(const char *a, const char *b) {
@@ -64,6 +59,11 @@ struct task {
 	struct table_infile infiles;
 };
 DEF_FREELIST(task, struct task, 1024)
+
+static uint newness = 0;
+
+static char pathbuf[PATH_MAX] = BUILDDB_DIR "/";
+static char pathbuf2[PATH_MAX] = BUILDDB_DIR "/";
 
 static struct task *goal = 0; // HACK: *super* clumsy way of doing this
 static int goalstatus;
@@ -379,12 +379,12 @@ void task_init(int maxparallel) {
 static void req(struct task_desc d, int fd_sendout, bool isgoal) {
 	// TODO(basic-core): lookup DB, only continue to run if not present/UTD!
 	struct task *t = opentask(d);
-	if (isgoal) goal = t;
 	if (!t) {
 		// TODO(basic-core)/FIXME: appropriate error handling here
 		errmsg_warn("couldn't setup task");
 		return;
 	}
+	if (isgoal) goal = t;
 	proc_start(&t->base, t->desc.argv, t->desc.workdir);
 	++nrunning;
 }

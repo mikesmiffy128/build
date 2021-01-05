@@ -12,13 +12,13 @@
 #define BLAKE2B_PERSONALBYTES	 16
 
 struct blake2b_state {
-	u64		h[8];
-	u64		t[2];
-	u64		f[2];
-	u8		buf[BLAKE2B_BLOCKBYTES];
-	ulong	buflen;
-	ulong	outlen;
-	u8		last_node;
+	u64	h[8];
+	u64	t[2];
+	u64	f[2];
+	u8	buf[BLAKE2B_BLOCKBYTES];
+	u8	buflen;
+	u8	outlen;
+	u8	last_node;
 };
 
 struct blake2b_param {
@@ -40,16 +40,16 @@ _Static_assert(sizeof(struct blake2b_param) == BLAKE2B_OUTBYTES,
 		"yikes, something is wrong with your alignment!");
 
 /* Streaming API */
-void blake2b_init(struct blake2b_state *S, ulong outlen);
-void blake2b_init_key(struct blake2b_state *S, ulong outlen, const void *key,
-		ulong keylen);
+void blake2b_init(struct blake2b_state *S, u8 outlen);
+void blake2b_init_key(struct blake2b_state *S, u8 outlen, const void *key,
+		u8 keylen);
 void blake2b_init_param(struct blake2b_state *S, const struct blake2b_param *P);
 void blake2b_update(struct blake2b_state *S, const void *in, ulong inlen);
-void blake2b_final(struct blake2b_state *S, void *out, ulong outlen);
+void blake2b_final(struct blake2b_state *S, void *out, u8 outlen);
 
 /* Simple API */
-void blake2b(void *out, ulong outlen, const void *in, ulong inlen,
-		const void *key, ulong keylen);
+void blake2b(void *out, u8 outlen, const void *in, ulong inlen, const void *key,
+		u8 keylen);
 
 #endif
 

@@ -23,7 +23,6 @@ static struct q {
 		Q_START,
 		Q_UNBLOCK
 	} goal;
-	/* --use this padding space-- */
 	struct proc_info *proc;
 	struct { // if Q_START
 		const char *const *argv;
@@ -35,6 +34,8 @@ DEF_FREELIST(q, struct q, 1024)
 
 static int maxparallel;
 static int nactive;
+static char **procenv;
+static proc_ev_cb ev_cb;
 
 static inline uint hash_pid(pid_t x) {
 	if (sizeof(pid_t) <= 4) return hash_int(x);
@@ -45,8 +46,6 @@ static inline pid_t proc_hash_memb(struct proc_info **p) { return (*p)->_pid; }
 DECL_TABLE(static, pid_proc, pid_t, struct proc_info *)
 DEF_TABLE(static, pid_proc, hash_pid, table_ideq, proc_hash_memb)
 static struct table_pid_proc by_pid = {0};
-
-static proc_ev_cb ev_cb;
 
 static void do_io(int fd, struct proc_info *p, int procev) {
 	char buf[16386];
@@ -71,8 +70,6 @@ static void cb_out(int fd, short revents, void *ctxt) {
 static void cb_err(int fd, short revents, void *ctxt) {
 	handle_out(fd, revents, ctxt, PROC_EV_STDERR);
 }
-
-static char **procenv;
 
 static char rootdirvar[sizeof(ENV_ROOT_DIR "=") - 1 + PATH_MAX] =
 		ENV_ROOT_DIR "=";
@@ -174,8 +171,7 @@ ce:		if (errno == ENOENT || errno == EPERM) {
 	close(proc->_errsock[1]);
 	close(proc->_outsock[1]);
 	return;
-e4:
-	evloop_onfd_remove(proc->_errsock[0]);
+e4:	evloop_onfd_remove(proc->_errsock[0]);
 e3:	close(proc->_errsock[0]); close(proc->_errsock[1]);
 e2:	evloop_onfd_remove(proc->_outsock[0]);
 e1:	close(proc->_outsock[0]); close(proc->_outsock[1]);

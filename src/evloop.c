@@ -35,7 +35,7 @@ static struct sig_cb {
 } sig_cbs[MAXSIGCB];
 static struct sig_cb *sig_cbs_tail = sig_cbs;
 
-void evloop_init(void) { for (nfds_t i = 0; i < MAXFDS; ++i) pfds[i].fd = -1; }
+void evloop_init(void) { for (int i = 0; i < MAXFDS; ++i) pfds[i].fd = -1; }
 
 bool evloop_onfd(int fd, short events, void (*cb)(int, short, void *),
 		void *ctxt) {
