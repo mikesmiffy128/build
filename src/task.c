@@ -384,6 +384,11 @@ static void req(struct task_desc d, int fd_sendout, bool isgoal) {
 		errmsg_warn("couldn't setup task");
 		return;
 	}
+	if (!vec_push(&t->fds_sendout, fd_sendout)) {
+		errmsg_warn("couldn't connect task output");
+		// TODO(basic-core)/FIXME: this should actually make the *requesting
+		// task* fail
+	}
 	if (isgoal) goal = t;
 	proc_start(&t->base, t->desc.argv, t->desc.workdir);
 	++nrunning;
