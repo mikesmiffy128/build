@@ -1,0 +1,4 @@
+Configurable C compiler for bootstrap
+====
+Ended up doing this in the space of about 5 minutes. Set the CC environment
+variable and it should Just Work™ probably.

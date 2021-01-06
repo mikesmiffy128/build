@@ -1,8 +1,9 @@
 #!/bin/sh -e
 
 . scripts/lib.sh
-. scripts/cc-pick.sh
+if [ "$CC" != "" ]; then cc="$CC"; else . scripts/cc-pick.sh; fi
 . scripts/cc-target.sh
+. scripts/cc-conf.sh
 
 # Manage expectations!
 case "$target_os" in
@@ -18,7 +19,6 @@ case "$target_os" in
 		warn "* let me know how you get on! *" ;;
 esac
 
-# TODO(conf-cc) should also get these from env, I spose
 cflags="-O3 -Wall -Wno-parentheses -Wno-missing-braces -Wno-misleading-indentation -fpic"
 ldflags="-O3 -fpic -fpie -s"
 test_cflags=
@@ -59,6 +59,7 @@ src/proc.c \
 src/sigstr.c \
 src/task.c \
 src/time.c \
+src/tui.c \
 cbits/src/errorstring.c \
 cbits/src/errmsg.c \
 cbits/src/fmt.c \
