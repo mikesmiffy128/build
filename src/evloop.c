@@ -79,8 +79,8 @@ noreturn evloop_run(void) {
 			if (nexttimer->deadline <= now) {
 				// deadline passed within the time it took to get here, don't
 				// wait any longer
-				nexttimer->cb(nexttimer);
 				skiplist_pop__evloop_timer(&timers);
+				nexttimer->cb(nexttimer);
 				continue;
 			}
 			ts = (struct timespec){(nexttimer->deadline - now) / 1000,
@@ -103,8 +103,8 @@ noreturn evloop_run(void) {
 		}
 		else if (polled == 0) {
 			// nexttimer _has to_ be set, no need to null check again
-			nexttimer->cb(nexttimer);
 			skiplist_pop__evloop_timer(&timers);
+			nexttimer->cb(nexttimer);
 		}
 		else for (int i = 0; polled; ++i) {
 			if (pfds[i].revents) {

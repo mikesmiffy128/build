@@ -21,6 +21,7 @@
 #include "fd.h"
 #include "proc.h"
 #include "sigstr.h"
+#include "tui.h"
 
 // there's a bunch of initially weird-looking stuff in this file - if you're
 // curious, there's a few insights in DevDocs/taskdb.txt
@@ -69,7 +70,7 @@ static struct task *goal = 0; // HACK: *super* clumsy way of doing this
 static int goalstatus;
 static int nrunning = 0;
 
-static void taskid(char out[static IDLEN], struct task_desc *d) {
+static void taskid(char out[IDLEN], struct task_desc *d) {
 	static const char hextab[16] = "0123456789ABCDEF";
 	struct blake2b_state s;
 	char buf[HASHLEN];
@@ -396,6 +397,7 @@ static void req(struct task_desc d, int fd_sendout, bool isgoal) {
 
 void task_goal(const char *const *argv, const char *workdir) {
 	req((struct task_desc){argv, workdir}, 1, true);
+	tui_setnactive(1); // TEMP!
 }
 
 // vi: sw=4 ts=4 noet tw=80 cc=80

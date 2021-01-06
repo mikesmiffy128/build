@@ -13,6 +13,7 @@
 #include "defs.h"
 #include "evloop.h"
 #include "task.h"
+#include "tui.h"
 
 USAGE("[-j jobs_at_once] [-C workdir] [-B] [command...]");
 
@@ -68,6 +69,13 @@ int main(int argc, char *argv[]) {
 	evloop_init();
 	if (mkdir(BUILDDB_DIR, 0755) == -1 && errno != EEXIST) {
 		errmsg_die(100, msg_fatal, "couldn't create .builddb directory");
+	}
+	if (isatty(2)) {
+		tui_init(2);
+	}
+	else {
+		int fd = open("/dev/tty", O_RDWR | O_CLOEXEC | O_NOCTTY);
+		if (fd != -1) tui_init(fd);
 	}
 	task_init(joblim);
 	task_goal(command, workdir);
