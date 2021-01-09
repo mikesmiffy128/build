@@ -5,7 +5,7 @@
  * note: also responsible for calling proc_init; the task API is essentially a
  * layer on top of proc stuff
  */
-void task_init(int maxparallel);
+void task_init(void);
 
 /* this one is called *once* with the main task to kick everything off */
 void task_goal(const char *const *argv, const char *workdir);

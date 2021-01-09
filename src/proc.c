@@ -2,7 +2,6 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <sys/socket.h>
-#include <sys/uio.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -14,8 +13,10 @@
 #include <noreturn.h>
 #include <table.h>
 
+#include "build.h"
 #include "defs.h"
 #include "evloop.h"
+#include "fpath.h"
 #include "proc.h"
 
 static struct q {
@@ -31,9 +32,9 @@ static struct q {
 	struct q *next;
 } *q_head, **q_tail = &q_head;
 DEF_FREELIST(q, struct q, 1024)
+uint qlen;
 
-static int maxparallel;
-static int nactive;
+int nactive;
 static char **procenv;
 static proc_ev_cb ev_cb;
 
@@ -73,7 +74,6 @@ static void cb_err(int fd, short revents, void *ctxt) {
 
 static char rootdirvar[sizeof(ENV_ROOT_DIR "=") - 1 + PATH_MAX] =
 		ENV_ROOT_DIR "=";
-// NOTE: dir MUST be canonicalised (see fixme below)
 static void setrootdirvar(const char *dir) {
 	char *p = rootdirvar + sizeof(ENV_ROOT_DIR "=") - 1;
 	if (dir[0] == '.' && dir[1] == '\0') {
@@ -81,14 +81,7 @@ static void setrootdirvar(const char *dir) {
 		p[1] = '\0';
 		return;
 	}
-	*p++ = '.';
-	*p++ = '.';
-	for (; *dir; ++dir) if (*dir == '/') {
-		*p++ = '/';
-		*p++ = '.';
-		*p++ = '.';
-	}
-	*p = '\0';
+	fpath_leavesubdir(dir, p, PATH_MAX); // FIXME check error!!
 }
 
 static char sockfdvar[sizeof(ENV_SOCKFD "=") - 1 + 11] = ENV_SOCKFD;
@@ -185,7 +178,8 @@ static void do_unblock(struct proc_info *proc) {
 
 static void qpop(void) {
 	struct q *q = q_head;
-	if (!q) return; // there could well be nothing left to do!
+	if (!q) return; // nothing left to start doing!
+	--qlen;
 	q_head = q->next;
 	if (!q_head) q_tail = &q_head; // last &next is gone, reset tail to head
 	if (q->goal == Q_START) do_start(q->argv, q->workdir, q->proc);
@@ -211,8 +205,7 @@ static void onchld(void) {
 	}
 }
 
-void proc_init(int maxparallel_, proc_ev_cb cb) {
-	maxparallel = maxparallel_;
+void proc_init(proc_ev_cb cb) {
 	ev_cb = cb;
 	ulong envsz = 0;
 	for (char **pp = environ; *pp; ++pp) ++envsz;
@@ -230,8 +223,8 @@ void proc_init(int maxparallel_, proc_ev_cb cb) {
 
 void proc_start(struct proc_info *proc, const char *const *argv,
 		const char *workdir) {
-	// FIXME canonicalise workdir (it is *assumed* to be canonical until then)
-	if (nactive < maxparallel) {
+	// FIXME canonicalise workdir (it is *assumed* to be canonical for now)
+	if (nactive < maxpar) {
 		do_start(argv, workdir, proc);
 	}
 	else {
@@ -243,6 +236,7 @@ void proc_start(struct proc_info *proc, const char *const *argv,
 		q->goal = Q_START;
 		q->argv = argv; q->workdir = workdir; // FIXME (TEMP) ownership issues?
 		q->next = 0; *q_tail = q; q_tail = &q->next;
+		++qlen;
 	}
 }
 
@@ -252,7 +246,7 @@ void proc_block(void) {
 }
 
 void proc_unblock(struct proc_info *proc) {
-	if (nactive < maxparallel) {
+	if (nactive < maxpar) {
 		do_unblock(proc);
 	}
 	else {
@@ -264,6 +258,7 @@ void proc_unblock(struct proc_info *proc) {
 		q->goal = Q_UNBLOCK;
 		q->proc = proc;
 		q->next = 0; *q_tail = q; q_tail = &q->next;
+		++qlen;
 	}
 }
 

@@ -17,8 +17,10 @@
 #include <vec.h>
 
 #include "blake2b.h"
+#include "build.h"
 #include "defs.h"
 #include "fd.h"
+#include "infile.h"
 #include "proc.h"
 #include "sigstr.h"
 #include "tui.h"
@@ -61,11 +63,6 @@ struct task {
 };
 DEF_FREELIST(task, struct task, 1024)
 
-static uint newness = 0;
-
-static char pathbuf[PATH_MAX] = BUILDDB_DIR "/";
-static char pathbuf2[PATH_MAX] = BUILDDB_DIR "/";
-
 static struct task *goal = 0; // HACK: *super* clumsy way of doing this
 static int goalstatus;
 static int nrunning = 0;
@@ -98,15 +95,17 @@ static struct task *opentask(struct task_desc d) {
 		t->desc = d; // FIXME (TEMP) ownership of strings...???
 		// compute the hash once and store it; we'll need it a few times later
 		taskid(t->id, &t->desc);
-		// XXX we assume PATH_MAX is *vaguely* reasonable here; if not, bad news
-		memcpy(pathbuf + sizeof(BUILDDB_DIR "/") - 1, t->id, IDLEN);
-		pathbuf[sizeof(BUILDDB_DIR "/") - 1 + IDLEN] = ':';
-		pathbuf[sizeof(BUILDDB_DIR "/") - 1 + IDLEN + 1] = 'o';
-		pathbuf[sizeof(BUILDDB_DIR "/") - 1 + IDLEN + 2] = '\0';
-		t->fd_out = open(pathbuf, O_RDWR | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
+		char buf[IDLEN + 3];
+		memcpy(buf, t->id, IDLEN);
+		buf[IDLEN] = ':';
+		buf[IDLEN + 1] = 'o';
+		buf[IDLEN + 2] = '\0';
+		t->fd_out = openat(fd_builddb, buf, O_RDWR | O_CREAT | O_TRUNC |
+				O_CLOEXEC, 0644);
 		if (t->fd_out == -1) goto e;
-		pathbuf[sizeof(BUILDDB_DIR "/") - 1 + IDLEN + 1] = 'e';
-		t->fd_err = open(pathbuf, O_RDWR | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
+		buf[IDLEN + 1] = 'e';
+		t->fd_err = openat(fd_builddb, buf, O_RDWR | O_CREAT | O_TRUNC |
+				O_CLOEXEC, 0644);
 		if (t->fd_err == -1) goto e1;
 	}
 	return t;
@@ -126,7 +125,11 @@ static void closetask(struct task *t) {
 	free(t->fds_sendout.data);
 	free(t->infiles.data); free(t->infiles.flags);
 	freelist_free_task(t);
-	if (!--nrunning) exit(goalstatus); // BLEGH. XXX make this less AWFUL.
+	if (!--nrunning) {
+		// BLEGH. XXX make this less AWFUL.
+		infile_done();
+		exit(goalstatus); 
+	}
 }
 
 /* a finished task in the database */
@@ -211,6 +214,7 @@ static void handle_failure(struct task *t, int status) {
 	}
 	if (t == goal) goalstatus = status; // yuck
 	closetask(t);
+	++tui_nfailed;
 }
 
 static void proc_cb(int evtype, union proc_ev_param P, struct proc_info *proc) {
@@ -235,18 +239,22 @@ static void proc_cb(int evtype, union proc_ev_param P, struct proc_info *proc) {
 						errmsg_warnx(msg_crit, "task `", s, "` finished while "
 								"supposedly blocked - fix your code!");
 					}
-					memcpy(pathbuf + sizeof(BUILDDB_DIR "/") - 1, t->id, IDLEN);
-					pathbuf[sizeof(BUILDDB_DIR "/") - 1 + IDLEN] = ':';
-					pathbuf[sizeof(BUILDDB_DIR "/") - 1 + IDLEN + 1] = 'o';
-					pathbuf[sizeof(BUILDDB_DIR "/") - 1 + IDLEN + 2] = '\0';
-					memcpy(pathbuf2 + sizeof(BUILDDB_DIR "/") - 1, t->id, IDLEN);
-					pathbuf2[sizeof(BUILDDB_DIR "/") - 1 + IDLEN] = ':';
-					pathbuf2[sizeof(BUILDDB_DIR "/") - 1 + IDLEN + 1] = 'O';
-					pathbuf2[sizeof(BUILDDB_DIR "/") - 1 + IDLEN + 2] = '\0';
-					if (rename(pathbuf, pathbuf2) == -1) goto badfs;
-					pathbuf[sizeof(BUILDDB_DIR "/") - 1 + IDLEN + 1] = 'e';
-					pathbuf2[sizeof(BUILDDB_DIR "/") - 1 + IDLEN + 1] = 'E';
-					if (rename(pathbuf, pathbuf2) == -1) {
+					char buf[IDLEN + 3];
+					char buf2[IDLEN + 3];
+					memcpy(buf, t->id, IDLEN);
+					buf[IDLEN] = ':';
+					buf[IDLEN + 1] = 'o';
+					buf[IDLEN + 2] = '\0';
+					memcpy(buf2, t->id, IDLEN);
+					buf2[IDLEN] = ':';
+					buf2[IDLEN + 1] = 'O';
+					buf2[IDLEN + 2] = '\0';
+					if (renameat(fd_builddb, buf, fd_builddb, buf2) == -1) {
+						goto badfs;
+					}
+					buf[IDLEN + 1] = 'e';
+					buf2[IDLEN + 1] = 'E';
+					if (renameat(fd_builddb, buf, fd_builddb, buf2) == -1) {
 						// XXX this should basically NEVER fail but wouldn't
 						// hurt to still try to be more robust
 badfs:					errmsg_die(200, msg_fatal, "couldn't save task result");
@@ -261,8 +269,9 @@ badfs:					errmsg_die(200, msg_fatal, "couldn't save task result");
 					}
 					// TODO(basic-core): send out the status, unblock things, whatever
 					free(s);
-					if (t == goal) goalstatus = WEXITSTATUS(P.status);
+					if (t == goal) goalstatus = WEXITSTATUS(P.status); // yuck 2
 					closetask(t);
+					++tui_ndone;
 				}
 				else {
 					char *s = desctostr(&t->desc);
@@ -298,27 +307,21 @@ fail:;		int e = errno;
 	}
 }
 
-static void symcat(const char *name) {
-	for (char *p = pathbuf + sizeof(BUILDDB_DIR "/") - 1; *p++ = *name++;);
-}
-
 static bool savesymstr(const char *name, const char *val) {
 	// create a new symlink and rename it to atomically replace the old one
 	// NOTE: this could break if someone is poking around .builddb at the same
 	// time. adequate solution: don't do that.
-	unlink(BUILDDB_DIR "/symnew"); // unlink in case it was left due to a crash
-	if (symlink(val, BUILDDB_DIR "/symnew") == -1) return false;
-	symcat(name);
-	if (rename(BUILDDB_DIR "/symnew", pathbuf) == -1) {
-		unlink(BUILDDB_DIR "/symnew");
+	unlinkat(fd_builddb, "symnew", 0); // in case it was left due to a crash
+	if (symlinkat(val, fd_builddb, "symnew") == -1) return false;
+	if (renameat(fd_builddb, "symnew", fd_builddb, name) == -1) {
+		unlinkat(fd_builddb, "symnew", 0);
 		return false;
 	}
 	return true;
 }
 
 static bool loadsymstr(const char *name, char *buf, uint sz) {
-	symcat(name);
-	long ret = readlink(pathbuf, buf, sz);
+	long ret = readlinkat(fd_builddb, name, buf, sz);
 	if (ret == -1) return false;
 	buf[ret] = '\0';
 	return true;
@@ -337,7 +340,7 @@ static vlong loadsymnum(const char *name, const char **errstr) {
 	return ret;
 }
 
-void task_init(int maxparallel) {
+void task_init(void) {
 	// XXX this error handling is far from perfect in terms of simplicity
 	const char *errstr = 0;
 	errno = 0;
@@ -348,7 +351,7 @@ void task_init(int maxparallel) {
 			errmsg_die(100, msg_fatal, "couldn't create task database");
 		}
 	}
-	else if (errno == ERANGE || errno == EINVAL) {
+	else if (errno == EINVAL) {
 		// status 1: user has messed with something, not our fault!
 		errmsg_diex(1, msg_fatal, "task database version is ", errstr);
 	}
@@ -364,7 +367,7 @@ void task_init(int maxparallel) {
 	errstr = 0;
 	errno = 0;
 	newness = loadsymnum("newness", &errstr); // ignore overflow, shrug again
-	if (errno == ERANGE || errno == EINVAL) {
+	if (errno == EINVAL) {
 		errmsg_diex(1, msg_fatal, "global task newness value is ", errstr);
 	}
 	else if (errno && errno != ENOENT) {
@@ -374,7 +377,8 @@ void task_init(int maxparallel) {
 	if (!savesymnum("newness", newness + 1)) {
 		errmsg_die(100, msg_fatal, "couldn't update task database");
 	}
-	proc_init(maxparallel, &proc_cb);
+	infile_init();
+	proc_init(&proc_cb);
 }
 
 static void req(struct task_desc d, int fd_sendout, bool isgoal) {
@@ -397,7 +401,6 @@ static void req(struct task_desc d, int fd_sendout, bool isgoal) {
 
 void task_goal(const char *const *argv, const char *workdir) {
 	req((struct task_desc){argv, workdir}, 1, true);
-	tui_setnactive(1); // TEMP!
 }
 
 // vi: sw=4 ts=4 noet tw=80 cc=80

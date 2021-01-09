@@ -33,7 +33,7 @@ struct proc_info {
 	int _outsock[2], _errsock[2];
 };
 
-void proc_init(int maxparallel, proc_ev_cb ev_cb);
+void proc_init(proc_ev_cb ev_cb);
 void proc_start(struct proc_info *proc, const char *const *argv,
 		const char *workdir);
 
@@ -50,6 +50,10 @@ void proc_block(void);
  * when this is permitted to happen.
  */
 void proc_unblock(struct proc_info *proc);
+
+// XXX spaghetti variables for tui, factor these out in some nicer way later */
+extern uint qlen;
+extern int nactive;
 
 #endif
 

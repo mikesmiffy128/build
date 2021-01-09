@@ -1,0 +1,58 @@
+Some random notes on infiles (infile.c):
+
+* All infile information is stored together to avoid opening too many files
+  (and just written out on exit for now)
+
+* Each entry is a filename, a null byte, and then a `struct infile` dumped
+  straight out.
+
+* Infiles also have a notion of "newness," see taskdb.txt.
+
+* If infile->len == -1u, this is a tombstone entry indicating that the file
+  doesn't actually exist.
+
+* If a task tells build about an infile that has never been seen before, an
+  entry will be created with a newness of 0. Otherwise, the infile won't be
+  checked here; it is sufficient to just note it for the task.
+
+* When determining whether to rerun a task (if its dependencies all haven't
+  changed), its infiles will be checked. This involves stat()ing the actual file
+  and comparing the new information against the old. If there is any difference,
+  the infile will have its newness updated, which will also indicate that the
+  task needs updated.
+
+* Build will only check a given infile once per run, then cache the same newness
+  value.
+
+* Oh, and if an infile already has a higher newness than a task, the underlying
+  file doesn't need to be stat()ed either.
+
+[ [  T H E   A C T U A L   I N F O R M A T I O N   B E I N G   S T O R E D  ] ]
+
+We don't just compare timestamps like Make or Ninja or whatever; see for example
+https://apenwarr.ca/log/20181113.
+
+But in fact, we go a step further and don't care about timestamps at all! This
+way just touching a file won't cause a rebuild for no reason.
+
+Instead, we only store things that definitely indicate a change in either
+content or access to the file: length, inode number, mode, uid, and gid.
+
+Since text editors pretty much all atomically save via rename to avoid data
+loss, the inode number alone is usually enough to detect a change. If the file
+in question was written to in some other way then maybe not, but we still have
+the length as a fallback. The user, group and mode are just there to ensure that
+permissions changes that would affect the success of using the file *do* have an
+effect on the build, particularly in enabling something to be run if it
+initially wasn't +x'd.
+
+The only possible false negative is if some big blob is edited using some tool
+that writes directly out to disk and that same blob also doesn't change in
+length at all. That seems unlikely, but it's a bridge that can be crossed later
+with the planned file-watching stuff.
+
+Other stuff that could be used, but isn't:
+* atime (changes on *read*, shouldn't even exist in the OS)
+* ctime (driven by the stat metadata we're already checking)
+* birthtime (requires idiotic linux effort; mostly redundant to inode changes)
+* content hash (may be too slow, would otherwise replace *everything* else)

@@ -54,7 +54,9 @@ $cc $cflags $extra_cflags $cpoly_cflags $ldflags $extra_ldflags -fpie $cpoly_ldf
 src/blake2b.c \
 src/build.c \
 src/evloop.c \
+src/fpath.c \
 src/fd.c \
+src/infile.c \
 src/proc.c \
 src/sigstr.c \
 src/task.c \

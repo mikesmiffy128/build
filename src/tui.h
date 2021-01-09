@@ -2,13 +2,9 @@
 #define INC_TUI_H
 
 void tui_init(int devtty);
+void tui_redraw(void);
 
-void tui_setnactive(int n);
-int tui_getnactive(void);
-void tui_setnpending(int n);
-int tui_getnpending(void);
-void tui_setndone(int n);
-int tui_getndone(void);
+extern int tui_ndone, tui_nfailed;
 
 #endif
 
