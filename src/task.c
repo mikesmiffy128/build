@@ -20,9 +20,11 @@
 #include "build.h"
 #include "defs.h"
 #include "fd.h"
+#include "fpath.h"
 #include "infile.h"
 #include "proc.h"
 #include "sigstr.h"
+#include "strpool.h"
 #include "tui.h"
 
 // there's a bunch of initially weird-looking stuff in this file - if you're
@@ -42,10 +44,7 @@ struct task_desc {
 };
 
 DECL_TABLE(static, infile, const char *, const char *)
-static inline bool infile_eq(const char *a, const char *b) {
-	return !strcmp(a, b);
-}
-DEF_TABLE(static, infile, hash_str, infile_eq, table_scalarmemb)
+DEF_TABLE(static, infile, hash_ptr, table_ideq, table_scalarmemb)
 
 struct vec_int VEC(int);
 /* a currently-running task */
@@ -145,11 +144,12 @@ DECL_TABLE(static, task_desc_result, const struct task_desc *,
 		struct task_result *)
 static uint hash_task_desc(const struct task_desc *d) {
 	uint h = HASH_ITER_INIT;
+	// NOTE: hashing the actual pointers, since strings are all interned
 	for (const char *const *argv = d->argv; *argv; ++argv) {
-		h = hash_iter_str(h, *argv);
+		h = hash_iter_bytes(h, (const char *)argv, 4);
 		h = hash_iter(h, '\0');
 	}
-	return hash_iter_str(h, d->workdir);
+	return hash_iter_bytes(h, (const char *)&d->workdir, 4);
 }
 static inline const struct task_desc *task_result_kmemb(
 		struct task_result **r) {
@@ -187,7 +187,7 @@ static char *desctostr(const struct task_desc *t) {
 		if (!doshellesc(&s, *argv)) goto e;
 	}
 	if (t->workdir[0] != '.' || t->workdir[1]) { // not in base dir
-		if (!str_append0t(&s, " in `")) goto e;
+		if (!str_append0t(&s, "` in `")) goto e;
 		if (!str_append0t(&s, t->workdir)) goto e;
 		if (!str_appendc(&s, '`')) goto e;
 	}
@@ -371,7 +371,7 @@ void task_init(void) {
 		errmsg_diex(1, msg_fatal, "global task newness value is ", errstr);
 	}
 	else if (errno && errno != ENOENT) {
-		errmsg_die(100, "couldn't read task database version");
+		errmsg_die(100, msg_fatal, "couldn't read task database version");
 	}
 	// bump newness immediately: if we crash, later rebuilds won't be prevented
 	if (!savesymnum("newness", newness + 1)) {
@@ -381,20 +381,51 @@ void task_init(void) {
 	proc_init(&proc_cb);
 }
 
+static bool reqinfile(struct task *t, const char *infile) {
+	bool isnew;
+	const char **pp = table_putget_infile(&t->infiles, infile, &isnew);
+	if (!pp) return false;
+	if (isnew) {
+		*pp = infile;
+		if (!infile_ensure(infile)) {
+			// FIXME: do we need to do anything else to back this out?
+			return false;
+		}
+	}
+	return true;
+}
+
 static void req(struct task_desc d, int fd_sendout, bool isgoal) {
 	// TODO(basic-core): lookup DB, only continue to run if not present/UTD!
 	struct task *t = opentask(d);
 	if (!t) {
 		// TODO(basic-core)/FIXME: appropriate error handling here
-		errmsg_warn("couldn't setup task");
+		char *s = desctostr(&d);
+		errmsg_warn(msg_error, "couldn't setup task `", s, "`");
+		free(s);
+		if (isgoal) exit(100);
 		return;
 	}
 	if (!vec_push(&t->fds_sendout, fd_sendout)) {
-		errmsg_warn("couldn't connect task output");
-		// TODO(basic-core)/FIXME: this should actually make the *requesting
-		// task* fail
+		errmsg_warn(msg_error, "couldn't connect task output");
+		// TODO(basic-core): make the *requesting* task fail (??)
 	}
 	if (isgoal) goal = t;
+	if (strchr(d.argv[0], '/')) { // not in PATH
+		const char *infile = d.argv[0];
+		char canon[PATH_MAX];
+		int err = fpath_canon(infile, canon, 0);
+		if (err == FPATH_OK) { // XXX otherwise????
+			infile = strpool_copy(canon);
+		}
+		if (!infile || !reqinfile(t, infile)) {
+			char *s = desctostr(&t->desc);
+			errmsg_warnx(msg_error, "couldn't add infile to task `", s, "`");
+			free(s);
+			handle_failure(t, 100);
+			return;
+		}
+	}
 	proc_start(&t->base, t->desc.argv, t->desc.workdir);
 	++nrunning;
 }

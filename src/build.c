@@ -12,7 +12,7 @@
 
 #include "defs.h"
 #include "evloop.h"
-#include "fpath.h"
+#include "strpool.h"
 #include "task.h"
 #include "tui.h"
 
@@ -65,17 +65,27 @@ int main(int argc, char *argv[]) {
 		errmsg_warnx(msg_note, "increase MAX_JOBS_AT_ONCE in build.c to fix!");
 		maxpar = 256;
 	}
-
 	if (argc) command = (const char *const *)argv;
+
+	strpool_init();
+	// note: this rightly assumes we're the first to put these strings in there,
+	// otherwise we'd need to make a new array
+	for (const char *const *pp = command; *pp; ++pp) {
+		if (!strpool_putstatic(*pp)) {
+			errmsg_die(100, msg_fatal, "couldn't intern string");
+		}
+	}
+	if (!strpool_putstatic(workdir)) { // FIXME should canon() that here really
+		errmsg_die(100, msg_fatal, "couldn't intern string");
+	}
 
 	close(0);
 	// we don't use stdin anywhere, replace it with /dev/null
 	if (open("/dev/null", O_RDWR) == -1) {
-		errmsg_die(100, msg_fatal, "can't open /dev/null");
+		errmsg_die(100, msg_fatal, "couldnt't open /dev/null");
 	}
 
 	evloop_init();
-	fpath_setcwd();
 	if (mkdir(BUILDDB_DIR, 0755) == -1 && errno != EEXIST) {
 		errmsg_die(100, msg_fatal, "couldn't create .builddb directory");
 	}
@@ -91,11 +101,6 @@ int main(int argc, char *argv[]) {
 		if (fd != -1) tui_init(fd);
 	}
 	task_init();
-	infile_ensure("Buildfile");
-	uint Newness = infile_query("Buildfile", -2u);
-	if (Newness == newness) {
-		errmsg_warnx("the newness changed!");
-	}
 	task_goal(command, workdir);
 	// TODO(basic-core) do actual stuff here
 	evloop_run();

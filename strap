@@ -59,6 +59,7 @@ src/fd.c \
 src/infile.c \
 src/proc.c \
 src/sigstr.c \
+src/strpool.c \
 src/task.c \
 src/time.c \
 src/tui.c \

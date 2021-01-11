@@ -3,18 +3,76 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
-#include <unistd.h>
 
-#include <errmsg.h>
 #include <intdefs.h>
 
-// FIXME: this should be dynamically allocated, since it's technically coming
-// *from* the kernel so there's no reason it couldn't be arbitrarily long
-static char cwd[PATH_MAX * 2];
+#include "fpath.h"
 
-void fpath_setcwd(void) {
-	if (!getcwd(cwd, sizeof(cwd))) {
-		errmsg_die(100, "couldn't get working directory");
+enum fpath_err fpath_canon(const char *path, char *canon, int *reldepth) {
+	if (*path == '\0') return FPATH_EMPTY;
+	if (*path == '/') return FPATH_ABSOLUTE;
+
+	int depth = 0;
+	const char *start = path, *cstart = canon;
+	for (;; ++path) {
+noinc:	switch (*path) {
+			case '\0': goto r;
+			case '/': goto slash;
+			case '.':
+				switch (*++path) {
+					case '/': goto nosl; // skip ./, it does nothing
+					case '.':
+						switch (*++path) {
+							case '/':
+								if (--depth < 0) return FPATH_OUTSIDE;
+								for (--canon; canon != cstart &&
+										*canon-- != '/';);
+								--canon;
+								goto nosl;
+							case '\0':
+								if (--depth < 0) return FPATH_OUTSIDE;
+								for (--canon; canon != cstart &&
+										*canon-- != '/';);
+								--canon;
+								goto r;
+							default:
+								*canon++ = '.'; *canon++ = '.';
+								*canon++ = *path;
+								continue;
+						}
+					case '\0':
+						// special case: project root/base dir
+						if (canon == cstart) *canon++ = '.';
+						else --canon; // otherwise same as ./
+						goto r;
+					default:
+						*canon++ = '.';
+						*canon++ = *path;
+						continue;
+				}
+			default:
+				*canon++ = *path;
+				continue;
+		}
+slash:	++depth;
+		*canon++ = '/';
+nosl:	while (*++path == '/');
+		if (!*path) return FPATH_TRAILSLASH; // TODO(basic-core): consider this
+		goto noinc;
+	}
+r:	if (canon == cstart) return FPATH_EMPTY;
+	*canon = '\0';
+	if (reldepth) *reldepth = depth;
+	return FPATH_OK;
+}
+
+char *fpath_errorstring(enum fpath_err e) {
+	switch (e) {
+		case FPATH_OK: return 0;
+		case FPATH_EMPTY: return "empty string for path";
+		case FPATH_ABSOLUTE: return "tried to use an absolute path";
+		case FPATH_OUTSIDE: return "path points outside the build system";
+		case FPATH_TRAILSLASH: return "path has an unexpected trailing slash";
 	}
 }
 

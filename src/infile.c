@@ -14,6 +14,7 @@
 #include <table.h>
 
 #include "build.h"
+#include "strpool.h"
 #include "unreachable.h"
 
 // this code is pretty tightly bound to task.c, really, it's just split out to
@@ -42,10 +43,7 @@ DECL_TABLE(static, path_infile, const char *, struct infile_lookup)
 static inline const char *infile_lookup_kmemb(const struct infile_lookup *ifl) {
 	return ifl->fname;
 }
-static inline const bool infile_lookup_eq(const char *a, const char *b) {
-	return !strcmp(a, b);
-}
-DEF_TABLE(static, path_infile, hash_str, infile_lookup_eq, infile_lookup_kmemb)
+DEF_TABLE(static, path_infile, hash_ptr, table_ideq, infile_lookup_kmemb)
 struct table_path_infile infiles;
 
 void infile_init(void) {
@@ -55,7 +53,7 @@ void infile_init(void) {
 	int fd = openat(fd_builddb, "infiles", O_RDONLY | O_CLOEXEC);
 	if (fd == -1) {
 		if (errno == ENOENT) return; // first run, it's fine
-		errmsg_die(100, "couldn't open infiles list");
+		errmsg_die(100, msg_fatal, "couldn't open infiles list");
 	}
 	struct str s;
 	struct ibuf *b = IBUF(fd, 65536);
@@ -87,9 +85,11 @@ e:			errmsg_die(100, msg_fatal, "couldn't read infiles list");
 			errmsg_diex(1, msg_fatal, "invalid infiles list: ",
 					"unexpected EOF in place of infile data");
 		}
-		struct infile_lookup *ifl = table_put_path_infile(&infiles, s.data);
+		const char *intern = strpool_move(s.data);
+		if (!intern) errmsg_die(100, msg_fatal, "couldn't intern string");
+		struct infile_lookup *ifl = table_put_path_infile(&infiles, intern);
 		if (!ifl) errmsg_die(100, msg_fatal, "couldn't create table entry");
-		ifl->fname = s.data;
+		ifl->fname = intern;
 		ifl->infile = i;
 	}
 }
@@ -127,7 +127,6 @@ void infile_done(void) {
 e:	errmsg_warnx(msg_note, "there may be unnecessary reruns in the future");
 r:	close(fd);
 	return;
-
 }
 
 static int lookup(const char *path, struct infile *data) {
