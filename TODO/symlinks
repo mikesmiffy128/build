@@ -7,3 +7,7 @@ can probably be ignored??? Either that or aliased to the real path.
 
 Requires *some* thought, but doesn't have to be well-defined behaviour right
 away - we can just cross the relevant bridge when we get there.
+
+Update: current behaviour treats an infile as a *path*, and symlinks just do
+what symlinks do. I think this is fine, but this item is still open to further
+consideration for now.
