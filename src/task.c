@@ -399,11 +399,11 @@ static void req(struct task_desc d, int fd_sendout, bool isgoal) {
 	// TODO(basic-core): lookup DB, only continue to run if not present/UTD!
 	struct task *t = opentask(d);
 	if (!t) {
-		// TODO(basic-core)/FIXME: appropriate error handling here
 		char *s = desctostr(&d);
 		errmsg_warn(msg_error, "couldn't setup task `", s, "`");
 		free(s);
 		if (isgoal) exit(100);
+		// TODO(basic-core)/FIXME: appropriate error handling here
 		return;
 	}
 	if (!vec_push(&t->fds_sendout, fd_sendout)) {

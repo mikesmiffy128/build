@@ -102,17 +102,12 @@ void infile_done(void) {
 		goto e;
 	}
 	struct obuf *b = OBUF(fd, 65536);
-	for (uint i = 0; i < infiles.sz; ++i) {
-		// XXX table.h should have an iteration abstraction, doing internal
-		// hackery for now
-		if (_table_ispresent(infiles.flags, i)) {
-			struct infile_lookup *ifl = infiles.data + i;
-			if (!obuf_put0t(b, ifl->fname) || !obuf_putc(b, '\0') ||
-					!obuf_putbytes(b, (char *)ifl->infile,
-						sizeof(*ifl->infile))) {
-				errmsg_warn(msg_crit, "couldn't write to infiles list");
-				goto e;
-			}
+	TABLE_FOREACH_PTR(ifl, path_infile, &infiles) {
+		if (!obuf_put0t(b, ifl->fname) || !obuf_putc(b, '\0') ||
+				!obuf_putbytes(b, (char *)ifl->infile,
+					sizeof(*ifl->infile))) {
+			errmsg_warn(msg_crit, "couldn't write to infiles list");
+			goto e;
 		}
 	}
 	if (!obuf_flush(b)) {
@@ -156,7 +151,7 @@ bool infile_ensure(const char *path) {
 		struct infile *i = permalloc_infile();
 		i->newness = 0;
 		if (!i) {
-			// XXX table.h could also use a delete-by-pointer option, I guess?
+			table_delptr(&infiles, ifl);
 			table_del_path_infile(&infiles, path);
 			return false;
 		}

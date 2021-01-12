@@ -51,7 +51,7 @@ void proc_block(void);
  */
 void proc_unblock(struct proc_info *proc);
 
-// XXX spaghetti variables for tui, factor these out in some nicer way later */
+// XXX spaghetti variables for tui, factor these out in some nicer way later
 extern uint qlen;
 extern int nactive;
 
