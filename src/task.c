@@ -35,7 +35,7 @@
 
 #define DBVER 1 // increase if something gets broken!
 
-#define HASHLEN 32
+#define HASHLEN 24
 #define IDLEN (HASHLEN * 2)
 
 struct task_desc {
