@@ -9,3 +9,7 @@ Somewhat-low-ish-hanging fruit:
 * Base64 instead of hex
 * Shared string pool thingy
 * Pool the actual task_result structs together
+
+Okay seriously the closer this has gotten to the first uni demo the more sloppy
+and stupid the database format has gotten. This definitely absolutely needs to
+be a priority going forward.

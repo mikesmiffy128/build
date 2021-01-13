@@ -9,7 +9,7 @@ Some random notes on infiles (infile.c):
 * Infiles also have a notion of "newness," see taskdb.txt.
 
 * If infile->len == -1u, this is a tombstone entry indicating that the file
-  doesn't actually exist.
+  doesn't actually exist (or is inaccessible).
 
 * If a task tells build about an infile that has never been seen before, an
   entry will be created with a newness of 0. Otherwise, the infile won't be

@@ -13,7 +13,7 @@ enum fpath_err fpath_canon(const char *path, char *canon, int *reldepth) {
 	if (*path == '/') return FPATH_ABSOLUTE;
 
 	int depth = 0;
-	const char *start = path, *cstart = canon;
+	const char *start = canon;
 	for (;; ++path) {
 noinc:	switch (*path) {
 			case '\0': goto r;
@@ -25,13 +25,13 @@ noinc:	switch (*path) {
 						switch (*++path) {
 							case '/':
 								if (--depth < 0) return FPATH_OUTSIDE;
-								for (--canon; canon != cstart &&
+								for (--canon; canon != start &&
 										*canon-- != '/';);
 								--canon;
 								goto nosl;
 							case '\0':
 								if (--depth < 0) return FPATH_OUTSIDE;
-								for (--canon; canon != cstart &&
+								for (--canon; canon != start &&
 										*canon-- != '/';);
 								--canon;
 								goto r;
@@ -42,7 +42,7 @@ noinc:	switch (*path) {
 						}
 					case '\0':
 						// special case: project root/base dir
-						if (canon == cstart) *canon++ = '.';
+						if (canon == start) *canon++ = '.';
 						else --canon; // otherwise same as ./
 						goto r;
 					default:
@@ -60,7 +60,7 @@ nosl:	while (*++path == '/');
 		if (!*path) return FPATH_TRAILSLASH; // TODO(basic-core): consider this
 		goto noinc;
 	}
-r:	if (canon == cstart) return FPATH_EMPTY;
+r:	if (canon == start) return FPATH_EMPTY;
 	*canon = '\0';
 	if (reldepth) *reldepth = depth;
 	return FPATH_OK;
@@ -78,11 +78,11 @@ char *fpath_errorstring(enum fpath_err e) {
 
 bool fpath_leavesubdir(const char *dir, char *wayout, uint outsz) {
 	char *p = wayout;
-	if (p - wayout >= outsz - 3) { errno = ENOMEM; return false; }
+	if (p - wayout >= outsz - 3) { errno = ENAMETOOLONG; return false; }
 	*p++ = '.';
 	*p++ = '.';
 	for (; *dir; ++dir) if (*dir == '/') {
-		if (p - wayout >= outsz - 4) { errno = ENOMEM; return false; }
+		if (p - wayout >= outsz - 4) { errno = ENAMETOOLONG; return false; }
 		*p++ = '/';
 		*p++ = '.';
 		*p++ = '.';

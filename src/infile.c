@@ -81,7 +81,7 @@ void infile_init(void) {
 		if (nread == -1) {
 e:			errmsg_die(100, msg_fatal, "couldn't read infiles list");
 		}
-		if (nread == 0) {
+		if (nread != sizeof(*i)) {
 			errmsg_diex(1, msg_fatal, "invalid infiles list: ",
 					"unexpected EOF in place of infile data");
 		}
@@ -127,7 +127,7 @@ r:	close(fd);
 static int lookup(const char *path, struct infile *data) {
 	struct stat s;
 	if (stat(path, &s) == -1) {
-		if (errno != ENOENT || errno == EACCES) return -1;
+		if (errno != ENOENT && errno != EACCES) return -1;
 		if (data->len == -1ull) return 0; // no change
 		data->len = -1;
 		return 1;
@@ -146,13 +146,12 @@ bool infile_ensure(const char *path) {
 	struct infile_lookup *ifl = table_putget_path_infile(&infiles, path, &isnew);
 	if (!ifl) return false;
 	if (isnew) {
-		ifl->fname = path; // FIXME string ownership again (strpool...)
+		ifl->fname = path;
 		// first ever lookup, create a reference entry for later comparisons
 		struct infile *i = permalloc_infile();
 		i->newness = 0;
 		if (!i) {
 			table_delptr(&infiles, ifl);
-			table_del_path_infile(&infiles, path);
 			return false;
 		}
 		ifl->infile = i;
@@ -173,7 +172,8 @@ uint infile_query(const char *path, uint tgtnewness) {
 	switch (lookup(path, ifl->infile)) {
 		case -1: return -1u;
 		case 1: ifl->infile->newness = newness;
-		case 0: return ifl->infile->newness;
+		case 0: ifl->checked = true;
+				return ifl->infile->newness;
 	}
 	unreachable;
 }
