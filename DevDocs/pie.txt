@@ -1,0 +1,24 @@
+Notes for enabling/disabling PIC/PIE
+(copied from my personal files for reference in cc-conf; in this project the
+main goal is turning PIE *on* but turning it off is documented if you need it)
+
+* tcc never creates PIEs and errors on -pie, so don't try to do anything.
+
+* GCC and Clang on Linux generally support -fpic and -pie to enable PIC/PIE,
+  and -no-pie to disable it.
+
+* FreeBSD never relocates binaries and Clang warns on -no-pie, so don't try to
+  do anything (also: specifying -pie makes it complain about lack of -fpic,
+  unless -flto is on...)
+
+* NetBSD GCC doesn't make PIEs by default, but it can. If you want one, use
+  -fpic and -pie. If not, it's okay to use -no-pie for good measure.
+
+* OpenBSD of course randomises everything by default, but a simple -no-pie is
+  enough to turn it off with Clang. Unfortunately -no-pie is not supported by
+  Clang's old version of GCC, but it might work with newer GCCs in ports. I
+  haven't bothered trying.
+
+* Generally GCC pre-version 6 requires -nopie instead of -no-pie, but not sure
+  if that is worth supporting since it's so old (OpenBSD of course ships the
+  ancient GCC 4 but only for old weird architectures)

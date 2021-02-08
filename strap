@@ -15,13 +15,13 @@ case "$target_os" in
 		warn "warning: build is not tested on your OS, so you may have issues..."
 		warn "* let me know how it goes! *" ;;
 	*)
-		warn "heads up: this OS is yet to be tested, but should work in theory."
+		warn "heads up: this OS has yet to be tested, but should work in theory."
 		warn "* let me know how you get on! *" ;;
 esac
 
 cflags="-O3 -fpic -Wall -Werror=implicit-function-declaration -Werror=vla \
 -Wno-parentheses -Wno-missing-braces -Wno-misleading-indentation"
-ldflags="-O3 -fpic -fpie -s"
+ldflags="-O3 -fpic -s"
 test_cflags=
 
 if is_cmd cpoly-config; then
@@ -34,12 +34,13 @@ else
 	exit 1
 fi
 
-if echo "__attribute__((constructor)) void x(void) {}" | \
+# tcc claims to support constructors but just eats 'em
+if [ $cc_type != tcc ] && echo "__attribute__((constructor)) void x(void) {}" | \
 		$cc -c -x c -o /dev/null - 2>/dev/null; then
 	do_tests=1
 else
 	warn "warning: compiler does not appear to like __attribute__((constructor))"
-	warn "warning: automated tests will not be built, so don't break anything!"
+	warn "* automated tests will not be built, so don't break anything!"
 	do_tests=0
 fi
 
@@ -50,7 +51,7 @@ mkdir -p build/strap/bin build/strap/lib
 # XXX could also at least reuse objects, that might be more worthwhile, idunno
 num_items=4 # ← remember to change this manually
 is_tty && printf "[0/$num_items] build" || :
-$cc $cflags $extra_cflags $cpoly_cflags $ldflags $extra_ldflags -fpie $cpoly_ldflags \
+$cc $cflags $extra_cflags $cpoly_cflags $ldflags $extra_ldflags $pie $cpoly_ldflags \
 -Icbits/include \
 src/blake2b.c \
 src/build.c \
@@ -74,7 +75,7 @@ cbits/src/path.c \
 -o build/strap/bin/build
 
 is_tty && printf "\r[K[1/$num_items] libbuild" || :
-$cc -shared $cflags $extra_cflags $cpoly_cflags $ldflags $extra_ldflags -fpie $cpoly_ldflags \
+$cc -shared $cflags $extra_cflags $cpoly_cflags $ldflags $extra_ldflags $cpoly_ldflags \
 -fvisibility=hidden \
 -Icbits/include \
 src/ipcclient.c \
@@ -85,7 +86,7 @@ cbits/src/iobuf.c \
 -o build/strap/lib/libbuild.so
 
 is_tty && printf "\r[K[2/$num_items] build-dep" || :
-$cc $cflags $extra_cflags $cpoly_cflags $ldflags $extra_ldflags -fpie $cpoly_ldflags \
+$cc $cflags $extra_cflags $cpoly_cflags $ldflags $extra_ldflags $pie $cpoly_ldflags \
 -Icbits/include \
 -Lbuild/strap/lib -lbuild \
 src/build-dep.c \
@@ -95,7 +96,7 @@ cbits/src/iobuf.c \
 -o build/strap/bin/build-dep
 
 is_tty && printf "\r[K[3/$num_items] build-infile" || :
-$cc $cflags $extra_cflags $cpoly_cflags $ldflags $extra_ldflags -fpie $cpoly_ldflags \
+$cc $cflags $extra_cflags $cpoly_cflags $ldflags $extra_ldflags $pie $cpoly_ldflags \
 -Icbits/include \
 -Lbuild/strap/lib -lbuild \
 src/build-infile.c \
