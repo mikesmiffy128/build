@@ -7,6 +7,7 @@
 #include <intdefs.h>
 
 #include "fpath.h"
+#include "unreachable.h"
 
 enum fpath_err fpath_canon(const char *path, char *canon, int *reldepth) {
 	if (*path == '\0') return FPATH_EMPTY;
@@ -66,7 +67,7 @@ r:	if (canon == start) return FPATH_EMPTY;
 	return FPATH_OK;
 }
 
-char *fpath_errorstring(enum fpath_err e) {
+const char *fpath_errorstring(enum fpath_err e) {
 	switch (e) {
 		case FPATH_OK: return 0;
 		case FPATH_EMPTY: return "empty string for path";
@@ -74,6 +75,7 @@ char *fpath_errorstring(enum fpath_err e) {
 		case FPATH_OUTSIDE: return "path points outside the build system";
 		case FPATH_TRAILSLASH: return "path has an unexpected trailing slash";
 	}
+	unreachable; // the switch exhausts the enum but okay gcc cool whatever
 }
 
 bool fpath_leavesubdir(const char *dir, char *wayout, uint outsz) {

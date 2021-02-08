@@ -5,18 +5,19 @@ use ./strap to bootstrap it. Installing is left as an exercise to the reader,
 but shouldn't be too complicated to figure out.
 
 This thing relies on libc functions and declarations that you probably don't
-have because your OS is bad. If/when you get compile warnings or link errors,
-use libcpoly, my browser-polyfill-except-not-for-browsers:
+have because your OS is bad. These are provided by libcpoly, my
+browser-polyfill-except-not-for-browsers:
 
   https://gitlab.com/mikesmiffy128/libcpoly
 
 The bootstrap script will use it if it's available in your exec, include and
 library paths. If it's not avaialable, it will complain until you install it
-properly.
+properly, as there is no single Unix OS that provides all the required features
+without various annoying forms of hoop-jumping.
 
-build is developed and tested on Linux with glibc, but should work under Linux
-with musl, the major BSDs and illumos as well. If it doesn't, that's a bug
-that'll need to be fixed before release.
+build is developed and tested on Linux 5.10 with glibc 2.32, but should work
+under Linux with musl, the major BSDs and illumos as well. If it doesn't, that's
+a bug that'll need to be fixed before release.
 
 == PROJECT STRUCTURE ==
 
@@ -58,7 +59,7 @@ Start by loading the `todo` function:
 
 OR (if you want to use this system elsewhere, I guess):
 
-  cat tools/todo >> ~/.your_shell_rc
+  cat tools/todo.sh >> ~/.your_shell_rc
 
 Then type one of these commands:
 
@@ -80,7 +81,7 @@ in the following format:
 
 To reference issues from inside code:
 
-  // TODO(issue-identifier): additional optional context if you want
+  // TODO(issue-identifier): additional contextual information if you want
 
 There is also Vim quickfix integration for those who use Vim/Neovim:
 

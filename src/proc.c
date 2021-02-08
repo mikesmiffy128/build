@@ -8,6 +8,7 @@
 #include <alloc.h>
 #include <basichashes.h>
 #include <errmsg.h>
+#include <fmt.h>
 #include <intdefs.h>
 #include <path.h>
 #include <noreturn.h>
@@ -17,18 +18,14 @@
 #include "defs.h"
 #include "evloop.h"
 #include "fpath.h"
+#include "ipcserver.h"
 #include "proc.h"
 
 static struct q {
-	enum {
-		Q_START,
-		Q_UNBLOCK
-	} goal;
-	struct proc_info *proc;
-	struct { // if Q_START
-		const char *const *argv;
-		const char *workdir;
-	};
+	// struct proc_info *proc;
+	ulong procaddr; // lower bit: 0 for start, 1 for unblock (saving 8 bytes!!)
+	const char *const *argv; // if start
+	const char *workdir; // " if start
 	struct q *next;
 } *q_head, **q_tail = &q_head;
 DEF_FREELIST(q, struct q, 1024)
@@ -48,28 +45,32 @@ DECL_TABLE(static, pid_proc, pid_t, struct proc_info *)
 DEF_TABLE(static, pid_proc, hash_pid, table_ideq, proc_hash_memb)
 static struct table_pid_proc by_pid = {0};
 
-static void do_io(int fd, struct proc_info *p, int procev) {
-	char buf[16386];
+static void doerrio(int fd, struct proc_info *p) {
+	char buf[65536];
 	int nread;
 	while ((nread = recv(fd, buf, sizeof(buf), MSG_DONTWAIT)) > 0) {
-		ev_cb(procev, (union proc_ev_param){buf, nread}, p);
+		ev_cb(PROC_EV_STDERR, (union proc_ev_param){.buf = buf, .sz = nread}, p);
 	}
 }
 
-static void handle_out(int fd, short revents, void *ctxt, int procev) {
+static void cb_err(int fd, short revents, void *ctxt) {
 	if (revents & POLLHUP) {
 		evloop_onfd_remove(fd);
 		// note: don't close() yet; that gets taken care of when the process
 		// exits and we don't wanna double-close and clobber something else
 		return;
 	} // else assume POLLIN
-	do_io(fd, (struct proc_info *)ctxt, procev);
+	doerrio(fd, (struct proc_info *)ctxt);
 }
-static void cb_out(int fd, short revents, void *ctxt) {
-	handle_out(fd, revents, ctxt, PROC_EV_STDOUT);
-}
-static void cb_err(int fd, short revents, void *ctxt) {
-	handle_out(fd, revents, ctxt, PROC_EV_STDERR);
+
+static void cb_ipc(int fd, short revents, void *ctxt) {
+	if (revents & POLLHUP) {
+		evloop_onfd_remove(fd);
+		// note: don't close() yet; that gets taken care of when the process
+		// exits and we don't wanna double-close and clobber something else
+		return;
+	} // else assume POLLIN
+	ev_cb(PROC_EV_IPC, (union proc_ev_param){0}, (struct proc_info *)ctxt);
 }
 
 static char rootdirvar[sizeof(ENV_ROOT_DIR "=") - 1 + PATH_MAX] =
@@ -86,7 +87,7 @@ static void setrootdirvar(const char *dir) {
 
 static char sockfdvar[sizeof(ENV_SOCKFD "=") - 1 + 11] = ENV_SOCKFD;
 static void setsockfdvar(int fd) {
-	// TODO(basic-core): ipc init...
+	sockfdvar[fmt_fixed_u32(sockfdvar + sizeof(ENV_SOCKFD "=") - 1, fd)] = '\0';
 }
 
 static void do_start(const char *const *argv, const char *workdir,
@@ -108,32 +109,35 @@ static void do_start(const char *const *argv, const char *workdir,
 			goto e;
 		}
 	}
-	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0,
-			proc->_outsock) == -1) {
-		errmsg_warn(msg_error, "couldn't create stdout socket for process");
+	int errsock[2];
+	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, errsock) == -1) {
+		errmsg_warn(msg_error, "couldn't create stderr socket for task");
 		goto e;
 	}
-	if (!evloop_onfd(proc->_outsock[0], EV_IN, cb_out, proc)) {
-		errmsg_warn(msg_error, "couldn't handle stdout socket events");
+	if (!evloop_onfd(errsock[0], EV_IN, &cb_err, proc)) {
+		errmsg_warn(msg_error, "couldn't handle stderr socket events");
 		goto e1;
 	}
-	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0,
-			proc->_errsock) == -1) {
-		errmsg_warn(msg_error, "couldn't create stderr socket for process");
+	proc->_errsock = errsock[0];
+	int ipcsock[2];
+	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, ipcsock) == -1) {
+		errmsg_warn(msg_error, "couldn't create IPC socket for task");
 		goto e2;
 	}
-	if (!evloop_onfd(proc->_errsock[0], EV_IN, cb_err, proc)) {
-		errmsg_warn(msg_error, "couldn't handle stderr socket events");
+	if (!evloop_onfd(ipcsock[0], EV_IN, &cb_ipc, proc)) {
+		errmsg_warn(msg_error, "couldn't handle IPC socket events");
 		goto e3;
 	}
+	proc->ipcsock = ipcsock[0];
 	setrootdirvar(workdir);
-	// setsockfdvar(???);
+	setsockfdvar(ipcsock[1]);
 	proc->_pid = vfork();
 	if (proc->_pid == -1) {
 		errmsg_warn(msg_error, "couldn't fork new process");
 		goto e4;
 	}
 	if (!proc->_pid) {
+		setpgid(0, 0); // see proc_killall() below
 		// unblock all signals - NOTE! this may cause handlers to run in the
 		// child, for now this is _assumed_ not to be an issue
 		sigprocmask(SIG_SETMASK, &(sigset_t){0}, 0);
@@ -142,8 +146,8 @@ static void do_start(const char *const *argv, const char *workdir,
 					workdir);
 			goto ce;
 		}
-		dup2(proc->_outsock[1], 1);
-		dup2(proc->_errsock[1], 2);
+		close(ipcsock[0]);
+		dup2(errsock[1], 2);
 		execve(prog, (char *const *)argv, procenv);
 		errmsg_warn("child: ", msg_fatal, "couldn't exec ", prog);
 ce:		if (errno == ENOENT || errno == EPERM) {
@@ -160,14 +164,13 @@ ce:		if (errno == ENOENT || errno == EPERM) {
 	// FIXME work out how to gracefully recover here
 	if (!ent) errmsg_die(200, msg_fatal, "couldn't store process information");
 	*ent = proc;
-
-	close(proc->_errsock[1]);
-	close(proc->_outsock[1]);
+	close(errsock[1]);
 	return;
-e4:	evloop_onfd_remove(proc->_errsock[0]);
-e3:	close(proc->_errsock[0]); close(proc->_errsock[1]);
-e2:	evloop_onfd_remove(proc->_outsock[0]);
-e1:	close(proc->_outsock[0]); close(proc->_outsock[1]);
+
+e4:	evloop_onfd_remove(ipcsock[0]);
+e3:	close(ipcsock[0]); close(ipcsock[1]);
+e2:	evloop_onfd_remove(errsock[0]);
+e1:	close(errsock[0]); close(errsock[1]);
 e:	ev_cb(PROC_EV_ERROR, (union proc_ev_param){0}, proc);
 }
 
@@ -182,8 +185,8 @@ static void qpop(void) {
 	--qlen;
 	q_head = q->next;
 	if (!q_head) q_tail = &q_head; // last &next is gone, reset tail to head
-	if (q->goal == Q_START) do_start(q->argv, q->workdir, q->proc);
-	else /* q-> goal == Q_UNBLOCK */ do_unblock(q->proc);
+	if (q->procaddr & 1) do_unblock((struct proc_info *)(q->procaddr & ~1u));
+	else do_start(q->argv, q->workdir, (struct proc_info *)q->procaddr);
 	freelist_free_q(q);
 }
 
@@ -191,23 +194,49 @@ static void onchld(void) {
 	pid_t pid; int status;
 	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
 		struct proc_info *proc = *table_del_pid_proc(&by_pid, pid);
-		// in case we got SIGCHLD right as IO happened, flush out the buffers
-		// a final time before closing
-		do_io(proc->_outsock[0], proc, PROC_EV_STDOUT);
-		close(proc->_outsock[0]);
-		evloop_onfd_remove(proc->_outsock[0]);
-		do_io(proc->_errsock[0], proc, PROC_EV_STDERR);
-		close(proc->_errsock[0]);
-		evloop_onfd_remove(proc->_errsock[0]);
+		// in case we got SIGCHLD right as IO happened, flush out the stderr
+		// socket a final time before closing
+		doerrio(proc->_errsock, proc);
+		close(proc->_errsock);
+		evloop_onfd_remove(proc->_errsock);
+		close(proc->ipcsock);
+		evloop_onfd_remove(proc->ipcsock);
 		ev_cb(PROC_EV_EXIT, (union proc_ev_param){.status = status}, proc);
 		--nactive;
 		qpop();
 	}
 }
 
+void proc_killall(int sig) {
+	// every task has its own group so we can kill that group;
+	// amazingly, whoever designed kill(2) decided that kill(0) should kill the
+	// caller too, otherwise this would be way easier and less annoying!
+	TABLE_FOREACH_PTR(p, pid_proc, &by_pid) kill(-(*p)->_pid, sig);
+}
+
+static void onterm(void) {
+	errmsg_warnx("got a SIGTERM; killing tasks and giving up");
+	proc_killall(SIGTERM);
+	sigaction(SIGTERM, &(struct sigaction){.sa_handler = SIG_DFL}, 0);
+	raise(SIGTERM); // die, as the user intended
+	sigset_t s = {0};
+	sigaddset(&s, SIGTERM);
+	sigprocmask(SIG_UNBLOCK, &s, 0);
+}
+
+static void onint(void) {
+	errmsg_warnx("got a SIGINT; killing tasks and giving up");
+	proc_killall(SIGINT);
+	sigaction(SIGINT, &(struct sigaction){.sa_handler = SIG_DFL}, 0);
+	raise(SIGINT);
+	sigset_t s = {0};
+	sigaddset(&s, SIGINT);
+	sigprocmask(SIG_UNBLOCK, &s, 0);
+}
+
 void proc_init(proc_ev_cb cb) {
 	ev_cb = cb;
-	ulong envsz = 0;
+	long envsz = 0;
 	for (char **pp = environ; *pp; ++pp) ++envsz;
 	procenv = malloc((envsz + 3) * sizeof(*environ));
 	if (!procenv) errmsg_die(100, msg_fatal, "couldn't allocate environment");
@@ -216,8 +245,10 @@ void proc_init(proc_ev_cb cb) {
 	procenv[envsz + 1] = sockfdvar;
 	procenv[envsz + 2] = 0;
 	evloop_onsig(SIGCHLD, &onchld);
+	evloop_onsig(SIGTERM, &onterm);
+	evloop_onsig(SIGINT, &onint);
 	if (!table_init_pid_proc(&by_pid)) {
-		errmsg_die(100, msg_fatal, "couldn't allocate hashtable");
+		errmsg_die(100, msg_fatal, "couldn't allocate process table");
 	}
 }
 
@@ -233,8 +264,8 @@ void proc_start(struct proc_info *proc, const char *const *argv,
 			ev_cb(PROC_EV_ERROR, (union proc_ev_param){0}, proc);
 			return;
 		}
-		q->goal = Q_START;
-		q->argv = argv; q->workdir = workdir; // FIXME (TEMP) ownership issues?
+		q->procaddr = (ulong)proc;
+		q->argv = argv; q->workdir = workdir;
 		q->next = 0; *q_tail = q; q_tail = &q->next;
 		++qlen;
 	}
@@ -255,8 +286,7 @@ void proc_unblock(struct proc_info *proc) {
 			ev_cb(PROC_EV_ERROR, (union proc_ev_param){0}, proc);
 			return;
 		}
-		q->goal = Q_UNBLOCK;
-		q->proc = proc;
+		q->procaddr = (ulong)proc + 1;
 		q->next = 0; *q_tail = q; q_tail = &q->next;
 		++qlen;
 	}

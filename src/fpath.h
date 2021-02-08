@@ -21,11 +21,11 @@ enum fpath_err {
  * 4) populate `*reldepth` *if* it's not null, indicating how much deeper into
  *    directories we are relative to the build base path (ie working dir)
  *
- * NOTE! canon must be at least as large as path, but needed be larger.
+ * NOTE! canon must be at least as large as path, but needn't be larger.
  */
 enum fpath_err fpath_canon(const char *path, char *canon, int *reldepth);
 
-char *fpath_errorstring(enum fpath_err e);
+const char *fpath_errorstring(enum fpath_err e);
 
 /*
  * NOTE: dir MUST be canonicalised and MUST go into an actual subdirectory

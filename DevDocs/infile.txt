@@ -1,11 +1,5 @@
 Some random notes on infiles (infile.c):
 
-* All infile information is stored together to avoid opening too many files
-  (and just written out on exit for now)
-
-* Each entry is a filename, a null byte, and then a `struct infile` dumped
-  straight out.
-
 * Infiles also have a notion of "newness," see taskdb.txt.
 
 * If infile->len == -1u, this is a tombstone entry indicating that the file

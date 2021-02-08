@@ -19,7 +19,8 @@ case "$target_os" in
 		warn "* let me know how you get on! *" ;;
 esac
 
-cflags="-O3 -Wall -Wno-parentheses -Wno-missing-braces -Wno-misleading-indentation -fpic"
+cflags="-O3 -fpic -Wall -Werror=implicit-function-declaration -Werror=vla \
+-Wno-parentheses -Wno-missing-braces -Wno-misleading-indentation"
 ldflags="-O3 -fpic -fpie -s"
 test_cflags=
 
@@ -53,46 +54,55 @@ $cc $cflags $extra_cflags $cpoly_cflags $ldflags $extra_ldflags -fpie $cpoly_ldf
 -Icbits/include \
 src/blake2b.c \
 src/build.c \
+src/db.c \
+src/db-strpool.c \
 src/evloop.c \
 src/fpath.c \
 src/fd.c \
 src/infile.c \
+src/ipcserver.c \
 src/proc.c \
 src/sigstr.c \
-src/strpool.c \
 src/task.c \
 src/time.c \
 src/tui.c \
-cbits/src/errorstring.c \
 cbits/src/errmsg.c \
+cbits/src/errorstring.c \
 cbits/src/fmt.c \
 cbits/src/iobuf.c \
 cbits/src/path.c \
 -o build/strap/bin/build
 
-is_tty && printf "\r[K[1/$num_items] build-dep" || :
+is_tty && printf "\r[K[1/$num_items] libbuild" || :
+$cc -shared $cflags $extra_cflags $cpoly_cflags $ldflags $extra_ldflags -fpie $cpoly_ldflags \
+-fvisibility=hidden \
+-Icbits/include \
+src/ipcclient.c \
+src/libbuild.c \
+cbits/src/errmsg.c \
+cbits/src/errorstring.c \
+cbits/src/iobuf.c \
+-o build/strap/lib/libbuild.so
+
+is_tty && printf "\r[K[2/$num_items] build-dep" || :
 $cc $cflags $extra_cflags $cpoly_cflags $ldflags $extra_ldflags -fpie $cpoly_ldflags \
 -Icbits/include \
+-Lbuild/strap/lib -lbuild \
 src/build-dep.c \
-cbits/src/errorstring.c \
 cbits/src/errmsg.c \
+cbits/src/errorstring.c \
 cbits/src/iobuf.c \
 -o build/strap/bin/build-dep
 
-is_tty && printf "\r[K[2/$num_items] build-infile" || :
+is_tty && printf "\r[K[3/$num_items] build-infile" || :
 $cc $cflags $extra_cflags $cpoly_cflags $ldflags $extra_ldflags -fpie $cpoly_ldflags \
 -Icbits/include \
+-Lbuild/strap/lib -lbuild \
 src/build-infile.c \
-cbits/src/errorstring.c \
 cbits/src/errmsg.c \
+cbits/src/errorstring.c \
 cbits/src/iobuf.c \
 -o build/strap/bin/build-infile
-
-is_tty && printf "\r[K[3/$num_items] libbuild" || :
-$cc -shared $cflags $extra_cflags $cpoly_cflags $ldflags $extra_ldflags $cpoly_ldflags \
--Icbits/include \
-src/libbuild.c \
--o build/strap/lib/libbuild.so
 
 is_tty && printf "\r[K" || :
 

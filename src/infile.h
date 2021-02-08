@@ -3,10 +3,7 @@
 
 #include <stdbool.h>
 
-#include "intdefs.h"
-
-void infile_init(void);
-void infile_done(void);
+#include <intdefs.h>
 
 bool infile_ensure(const char *path);
 

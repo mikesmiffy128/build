@@ -12,7 +12,7 @@
 #include "evloop.h"
 #include "time.h"
 
-#define MAXFDS 4096 // hopefully this is enough!
+#define MAXFDS 8192 // hopefully this is enough!
 
 static int nfds = 0; // upper bound for poll() call
 static struct pollfd pfds[MAXFDS] = {0};
@@ -26,7 +26,7 @@ static struct fd_cb {
 DEF_SKIPLIST(static, _evloop_timer, timer_comp, timer_hdr)
 struct skiplist_hdr__evloop_timer timers = {0};
 
-#define MAXSIGCB 2 // NOTE: increase as needed for the program
+#define MAXSIGCB 3 // NOTE: increase as needed for the program
 static sigset_t gotsigs = {0};
 static void onsig(int sig) { sigaddset((sigset_t *)&gotsigs, sig); }
 static struct sig_cb {

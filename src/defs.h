@@ -6,7 +6,14 @@
 #define BUILDDB_DIR ".builddb"
 
 #define ENV_ROOT_DIR "BUILD_ROOT_DIR"
-#define ENV_SOCKFD "_BUILD_SOCKFD" /* name should not be relied upon! */
+#define ENV_SOCKFD "_BUILD_SOCK_FD" /* var name should not be relied upon! */
+
+/* and random general structs that don't belong anywhere else */
+
+struct task_desc {
+	const char *const *argv;
+	const char *workdir;
+};
 
 #endif
 

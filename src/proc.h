@@ -6,34 +6,33 @@
 
 #include <intdefs.h>
 
-struct proc_info;
+/* embeds into another struct (eg struct task) */
+struct proc_info {
+	pid_t _pid; // top-level pid; may have descendants
+	int _errsock, ipcsock; // our end of each socket (ipcsock is "public")
+};
 
 enum {
-	PROC_EV_STDOUT,
 	PROC_EV_STDERR,
 	PROC_EV_EXIT,
 	PROC_EV_UNBLOCK,
+	PROC_EV_IPC,
 	PROC_EV_ERROR
 };
 union proc_ev_param {
-	struct { /* if PROC_EV_STDOUT or PROC_EV_STDERR */
+	struct { /* PROC_EV_STDERR */
 		const char *buf;
 		uint sz;
 	};
 	int status; /* if PROC_EV_EXIT */
-	// if PROC_EV_UNBLOCK, nothing
+	// if PROC_EV_UNBLOCK or PROC_EV_IPC, nothing
 	// if PROC_EV_ERROR, nothing (errno will be set though)
 };
 typedef void (*proc_ev_cb)(int evtype, union proc_ev_param P,
 		struct proc_info *proc);
 
-/* embeds into another struct, should be treated as opaque/private */
-struct proc_info {
-	pid_t _pid;
-	int _outsock[2], _errsock[2];
-};
-
 void proc_init(proc_ev_cb ev_cb);
+
 void proc_start(struct proc_info *proc, const char *const *argv,
 		const char *workdir);
 
@@ -45,11 +44,18 @@ void proc_start(struct proc_info *proc, const char *const *argv,
 void proc_block(void);
 
 /*
- * Indicates to the process scheduler that a specific blocked process would like
- * to start doing work again; the event callback will be given PROC_EV_UNBLOCK
- * when this is permitted to happen.
+ * Indicates to the process scheduler that a specific blocked task ought to
+ * be unblocked again. Once this task is allowed to continue on (i.e. another
+ * has finished or become blocked) the event handler will receive a
+ * PROC_EV_UNBLOCK event.
  */
 void proc_unblock(struct proc_info *proc);
+
+/*
+ * Kills all the task process groups that were created; call when build is about
+ * to give up/crash.
+ */
+void proc_killall(int sig);
 
 // XXX spaghetti variables for tui, factor these out in some nicer way later
 extern uint qlen;

@@ -5,7 +5,7 @@
 
 #include <intdefs.h>
 
-bool fd_writeall(int fd, const char *buf, uint sz);
+bool fd_writeall(int fd, const void *buf, uint sz);
 bool fd_transferall(int diskf, int to);
 
 #endif

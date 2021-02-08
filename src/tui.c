@@ -11,13 +11,13 @@
 #include "time.h"
 
 static int devtty = -1;
-static struct obuf *buf_tty = OBUF(-1, 512);
+static struct obuf *buf_tty = OBUF(-1, 128);
 static bool shouldshow = false;
 
 static const char *const spinner[] = {"╸╺", "━ ", "╺╸", " ━"};
 static int spinstate = 0;
 
-int tui_ndone = 0, tui_nfailed = 0;
+int tui_ndone = 0;
 
 static void tui_redraw(void) {
 	// TODO(tui): do... whatever I come up with over here
@@ -34,11 +34,6 @@ static void tui_redraw(void) {
 	}
 	fmt_buf_u32(buf_tty, tui_ndone);
 	obuf_put0t(buf_tty, " done");
-	if (tui_nfailed) {
-		obuf_put0t(buf_tty, ", ");
-		fmt_buf_u32(buf_tty, tui_nfailed);
-		obuf_put0t(buf_tty, " failed");
-	}
 	obuf_flush(buf_tty);
 	obuf_reset(buf_tty);
 	// HACK!! if our tty is different from stderr then stderr was sent to a

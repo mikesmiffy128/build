@@ -5,11 +5,17 @@ complicated memory-mapping schemes. This is a wishlist TODO rather than a
 must-have, but noted down nonetheless just as a reminder for some rainy day in
 the future.
 
-Somewhat-low-ish-hanging fruit:
-* Base64 instead of hex
-* Shared string pool thingy
-* Pool the actual task_result structs together
+At this point all the db logic has been pulled into one place, db.c, which
+does sort of try to optimise for size (string pool is saved to disk, every other
+string just references the pool, tasks reference dependencies by file offset).
+However, nothing fancy is being done for speed. Right now the whole thing is
+just read in on startup and written out on exit. Committing individual infile or
+task entries is a no-op.
 
-Okay seriously the closer this has gotten to the first uni demo the more sloppy
-and stupid the database format has gotten. This definitely absolutely needs to
-be a priority going forward.
+Relatively easy efficiency improvement for later:
+Update infile entries by pwrite()-ing over the existing ones, update task
+results in an append-only manner (due to variable length) but have some sort of
+compaction process that happens every so often.
+
+Alternatively, just hook up some actual existing DB engine, but I'm not sure
+what fits the bill.

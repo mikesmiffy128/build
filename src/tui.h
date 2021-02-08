@@ -4,7 +4,7 @@
 void tui_init(int devtty);
 void tui_redraw(void);
 
-extern int tui_ndone, tui_nfailed;
+extern int tui_ndone;
 
 #endif
 

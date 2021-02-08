@@ -1,5 +1,6 @@
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <sys/stat.h>
@@ -10,9 +11,10 @@
 #include <iobuf.h>
 #include <opt.h>
 
+#include "db.h"
 #include "defs.h"
 #include "evloop.h"
-#include "strpool.h"
+#include "fpath.h"
 #include "task.h"
 #include "tui.h"
 
@@ -29,15 +31,12 @@ USAGE("[-j tasks_at_once] [-C workdir] [-B] [command...]");
 #define MAX_JOBS_AT_ONCE 256
 
 // spaghetti variables (build.h)
-int fd_builddb;
 int maxpar = 0;
-int newness = 0;
 
 int main(int argc, char *argv[]) {
-	bool rebuild = false;
-
-	const char *const default_command[] = {"./Buildfile", 0};
-	const char *const *command = default_command;
+	bool cleanbuild = false;
+	const char *default_command[] = {"./Buildfile", 0};
+	const char **command = default_command;
 	const char *workdir = ".";
 
 	FOR_OPTS(argc, argv, {
@@ -50,11 +49,11 @@ int main(int argc, char *argv[]) {
 				else exit(1); // out of range isn't really bad usage
 			}
 			break;
-		case 'B': rebuild = true; break;
+		case 'B': cleanbuild = true; break;
 		case 'C': workdir = OPTARG(argc, argv);
 	});
 	
-	if (rebuild) {} // TODO(force-rebuild) put that here :)
+	if (cleanbuild) {} // TODO(force-rebuild) put that here :)
 
 	if (!maxpar) maxpar = sysconf(_SC_NPROCESSORS_ONLN);
 	if (maxpar > MAX_JOBS_AT_ONCE) {
@@ -65,34 +64,32 @@ int main(int argc, char *argv[]) {
 		errmsg_warnx(msg_note, "increase MAX_JOBS_AT_ONCE in build.c to fix!");
 		maxpar = 256;
 	}
-	if (argc) command = (const char *const *)argv;
+	if (argc) command = (const char **)argv;
 
-	strpool_init();
-	// note: this rightly assumes we're the first to put these strings in there,
-	// otherwise we'd need to make a new array
-	for (const char *const *pp = command; *pp; ++pp) {
-		if (!strpool_putstatic(*pp)) {
-			errmsg_die(100, msg_fatal, "couldn't intern string");
-		}
-	}
-	if (!strpool_putstatic(workdir)) { // FIXME should canon() that here really
-		errmsg_die(100, msg_fatal, "couldn't intern string");
-	}
-
-	close(0);
-	// we don't use stdin anywhere, replace it with /dev/null
-	if (open("/dev/null", O_RDWR) == -1) {
+	// replace stdin and stdout with /dev/null so people don't use build wrong.
+	// any user can have a build system painted any colour that he wants so long
+	// as it is black.
+	close(0); close(1);
+	if (open("/dev/null", O_RDWR) == -1 || dup(0) == -1) {
 		errmsg_die(100, msg_fatal, "couldnt't open /dev/null");
 	}
 
 	evloop_init();
-	if (mkdir(BUILDDB_DIR, 0755) == -1 && errno != EEXIST) {
-		errmsg_die(100, msg_fatal, "couldn't create .builddb directory");
+	db_init();
+	for (const char **pp = command; *pp; ++pp) {
+		const char *s = db_intern(*pp);
+		if (!s) errmsg_die(100, msg_fatal, "couldn't intern string");
+		*pp = s; // just reuse the argv space - why not? deps that come in later
+				 // will get malloced of course
 	}
-	fd_builddb = open(BUILDDB_DIR, O_DIRECTORY | O_RDONLY | O_CLOEXEC);
-	if (fd_builddb == -1) {
-		errmsg_die(100, msg_fatal, "couldn't open .builddb directory");
+	char canonworkdir[PATH_MAX];
+	enum fpath_err e = fpath_canon(workdir, canonworkdir, 0);
+	if (e != FPATH_OK) {
+		errmsg_diex(2, msg_fatal, "invalid working directory (-C) given: ",
+				fpath_errorstring(e));
 	}
+	workdir = db_intern(canonworkdir);
+	if (!workdir) errmsg_die(100, msg_fatal, "couldn't intern string");
 	if (isatty(2)) {
 		tui_init(2);
 	}
@@ -102,7 +99,6 @@ int main(int argc, char *argv[]) {
 	}
 	task_init();
 	task_goal(command, workdir);
-	// TODO(basic-core) do actual stuff here
 	evloop_run();
 }
 

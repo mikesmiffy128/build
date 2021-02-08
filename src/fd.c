@@ -3,7 +3,8 @@
 
 #include <intdefs.h>
 
-bool fd_writeall(int fd, const char *buf, uint sz) {
+bool fd_writeall(int fd, const void *_buf, uint sz) {
+	const char *buf = _buf;
 	uint off = 0;
 	while (sz) {
 		long nwritten = write(fd, buf + off, sz);
