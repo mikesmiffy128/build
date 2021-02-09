@@ -29,9 +29,9 @@ static struct q {
 	struct q *next;
 } *q_head, **q_tail = &q_head;
 DEF_FREELIST(q, struct q, 1024)
-uint qlen;
+int qlen;
 
-int nactive;
+int nactive, nblocked;
 static char **procenv;
 static proc_ev_cb ev_cb;
 
@@ -85,9 +85,10 @@ static void setrootdirvar(const char *dir) {
 	fpath_leavesubdir(dir, p, PATH_MAX); // FIXME check error!!
 }
 
-static char sockfdvar[sizeof(ENV_SOCKFD "=") - 1 + 11] = ENV_SOCKFD;
+static char sockfdvar[sizeof(ENV_SOCKFD "=") - 1 + 11] = ENV_SOCKFD "=";
 static void setsockfdvar(int fd) {
-	sockfdvar[fmt_fixed_u32(sockfdvar + sizeof(ENV_SOCKFD "=") - 1, fd)] = '\0';
+	sockfdvar[sizeof(ENV_SOCKFD "=") - 1 +
+			fmt_fixed_u32(sockfdvar + sizeof(ENV_SOCKFD "=") - 1, fd)] = '\0';
 }
 
 static void do_start(const char *const *argv, const char *workdir,
@@ -120,7 +121,12 @@ static void do_start(const char *const *argv, const char *workdir,
 	}
 	proc->_errsock = errsock[0];
 	int ipcsock[2];
-	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, ipcsock) == -1) {
+	// we have to preserve boundaries since we do blocking, buffered IO
+	// (if boundaries aren't preserved, messages bleed into the buffer and get
+	// dropped as the buffer is cleared between reads)
+	// note: could also use SOCK_SEQPACKET, it doesn't really matter here, but
+	// DGRAM *might* be more portable, so using that one
+	if (socketpair(AF_UNIX, SOCK_DGRAM, 0, ipcsock) == -1) {
 		errmsg_warn(msg_error, "couldn't create IPC socket for task");
 		goto e2;
 	}
@@ -272,11 +278,13 @@ void proc_start(struct proc_info *proc, const char *const *argv,
 }
 
 void proc_block(void) {
+	++nblocked;
 	--nactive;
 	qpop();
 }
 
 void proc_unblock(struct proc_info *proc) {
+	--nblocked; // NOTE: this is *added* to qlen in tui to get "waiting" count
 	if (nactive < maxpar) {
 		do_unblock(proc);
 	}

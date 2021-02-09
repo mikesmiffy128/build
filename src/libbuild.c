@@ -32,6 +32,12 @@ export void build_dep(const char *const *argv, const char *workdir) {
 
 export int build_dep_wait(void) {
 	if (sockfd == -1) init("build_dep_wait");
+	struct ipc_req req;
+	req.type = IPC_REQ_WAIT;
+	if (!ipcclient_send(sockfd, &req)) {
+		errmsg_die(100, "libbuild: ", msg_fatal, "couldn't send IPC request");
+	}
+	// this one actually takes a reply!
 	struct ipc_reply reply;
 	if (!ipcclient_recv(sockfd, &reply)) {
 		errmsg_die(100, "libbuild: ", msg_fatal, "couldn't read IPC reply");

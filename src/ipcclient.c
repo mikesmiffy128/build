@@ -31,8 +31,7 @@ bool ipcclient_send(int fd, const struct ipc_req *msg) {
 				return false;
 			}
 	}
-	if (!obuf_flush(O)) return false;
-	return true;
+	return obuf_flush(O);
 }
 
 bool ipcclient_recv(int fd, struct ipc_reply *msg) {

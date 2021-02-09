@@ -58,8 +58,8 @@ void proc_unblock(struct proc_info *proc);
 void proc_killall(int sig);
 
 // XXX spaghetti variables for tui, factor these out in some nicer way later
-extern uint qlen;
-extern int nactive;
+extern int qlen;
+extern int nactive, nblocked;
 
 #endif
 

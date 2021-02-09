@@ -1,0 +1,6 @@
+#!/bin/sh -e
+
+export LD_LIBRARY_PATH="build/strap/lib:$LD_LIBRARY_PATH"
+export PATH="build/strap/bin:$PATH"
+
+exec build "$@"

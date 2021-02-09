@@ -28,8 +28,8 @@ static void tui_redraw(void) {
 	obuf_putc(buf_tty, '/');
 	fmt_buf_u32(buf_tty, maxpar);
 	obuf_put0t(buf_tty, " active, ");
-	if (qlen) {
-		fmt_buf_u32(buf_tty, qlen);
+	if (qlen + nblocked) {
+		fmt_buf_u32(buf_tty, qlen + nblocked);
 		obuf_put0t(buf_tty, " waiting, ");
 	}
 	fmt_buf_u32(buf_tty, tui_ndone);

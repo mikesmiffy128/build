@@ -13,7 +13,7 @@ static struct ibuf *I = IBUF(-1, 16384);
 bool ipcserver_recv(int fd, struct ipc_req *msg) {
 	I->fd = fd; I->w = 0; I->r = 0;
 
-	int type = ibuf_getc(I);
+	short type = ibuf_getc(I);
 	if (type == -1 || type == IOBUF_EOF) return false;
 	msg->type = type;
 
@@ -32,15 +32,16 @@ bool ipcserver_recv(int fd, struct ipc_req *msg) {
 			for (const char **pp = argv; pp - argv < argc; ++pp) {
 				s = (struct str){0};
 				if (!str_clear(&s) || ibuf_getstr(I, &s, '\0') < 1 ||
-						s.data[s.sz - 2] != '\0' || !(*pp = db_intern(s.data))) {
+						s.data[s.sz - 2] != '\0' ||
+						!(*pp = db_intern_free(s.data))) {
 					goto freeav;
 				}
 			}
 			argv[argc] = 0;
 			s = (struct str){0};
-			if (ibuf_getstr(I, &s, '\0') < 1) goto freeav;
+			if (!str_clear(&s) || ibuf_getstr(I, &s, '\0') < 1) goto freeav;
 			if (s.data[s.sz - 2] != '\0') goto freeav;
-			const char *workdir = db_intern(s.data);
+			const char *workdir = db_intern_free(s.data);
 			if (!workdir) goto freeav;
 			msg->dep.argv = argv;
 			msg->dep.workdir = workdir;
@@ -53,13 +54,13 @@ freeav:		free(argv);
 			if (!str_clear(&s)) return false;
 			if (ibuf_getstr(I, &s, '\0') < 1) goto e;
 			if (s.data[s.sz - 2] != '\0') goto e;
-			const char *infile = db_intern(s.data);
+			const char *infile = db_intern_free(s.data);
 			if (!infile) goto e;
 			msg->infile = infile;
 	}
 	return true;
 
-e:	free(s.data);
+e:	free(s.data); // careful, fragile! - only valid right when each goto happens
 	return false;
 }
 

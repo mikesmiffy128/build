@@ -54,7 +54,7 @@ struct task {
 	bool haderr : 1; uint fd_err : 31;
 	uint nblockers; // how many tasks we're waiting for before we can unblock
 					// (0 if not currently blocked)
-	struct vec_task_desc newdeps; // deps that will be blocked on next wait
+	struct vec_task_desc newdeps; // deps that will block this on next wait
 	struct vec_taskp blockees; // tasks that are blocked waiting for this task
 	struct table_taskdesc deps; // recorded deps from this run
 	struct table_infile infiles; // recorded infiles from this run
@@ -84,7 +84,7 @@ static struct task *opentask(struct task_desc d, uint id) {
 		if (!table_init_infile(&t->infiles)) goto e1;
 		char buf[12];
 		buf[0] = 'e';
-		buf[fmt_fixed_u32(buf + 1, id)] = '\0';
+		buf[1 + fmt_fixed_u32(buf + 1, id)] = '\0';
 		t->fd_err = openat(db_dirfd, buf, O_RDWR | O_CREAT | O_TRUNC |
 				O_CLOEXEC, 0644);
 		if (t->fd_err == -1) goto e2;
@@ -105,7 +105,6 @@ static void closetask(struct task *t) {
 	freelist_free_task(t);
 }
 
-// FIXME this somehow breaks somewhere, figure out why and fix it!
 static inline bool shellesc(struct str *s, const char *p) {
 	// if there's shell characters, wrap in single quotes, escaping single
 	// quotes specially
@@ -207,8 +206,8 @@ static void handle_success(struct task *t, int status) {
 	buf2[0] = 'E';
 	int n = fmt_fixed_u32(buf + 1, r->id);
 	memcpy(buf2 + 1, buf + 1, n);
-	buf[n] = '\0';
-	buf2[n] = '\0';
+	buf[1 + n] = '\0';
+	buf2[1 + n] = '\0';
 	if (t->haderr) {
 		if (renameat(db_dirfd, buf, db_dirfd, buf2) == -1) goto e;
 	}
@@ -250,6 +249,12 @@ static bool reqdep(struct task *req, struct task_desc dep, bool isgoal) {
 	struct db_taskresult *r = db_gettaskresult(dep);
 	if (!r) goto e;
 	if (r->newness == db_newness) return false; // it's already done AND checked
+	if (req) {
+		bool isnew;
+		struct task_desc *d = table_putget_taskdesc(&req->deps, dep, &isnew);
+		if (!d || isnew && !vec_push(&req->newdeps, dep)) goto e;
+		*d = dep;
+	}
 	bool activeisnew;
 	struct task **active = table_putget_transact_activetask(&activetasks, dep,
 			&activeisnew);
@@ -285,7 +290,7 @@ static bool reqdep(struct task *req, struct task_desc dep, bool isgoal) {
 	char *s = desctostr(&dep);
 	char buf[12];
 	buf[0] = 'E';
-	buf[fmt_fixed_u32(buf + 1, r->id)] = '\0';
+	buf[1 + fmt_fixed_u32(buf + 1, r->id)] = '\0';
 	int fd = openat(db_dirfd, buf, O_RDONLY);
 	if (fd != -1) {
 		showerr(s, fd);
@@ -318,6 +323,7 @@ static void reqwait(struct task *t) {
 		struct task **active = table_get_activetask(&activetasks, *d);
 		if (active) {
 			if (!vec_push(&(*active)->blockees, t)) goto e;
+			++t->nblockers;
 		}
 		else {
 			// assume the result is already stored at this point
@@ -325,8 +331,15 @@ static void reqwait(struct task *t) {
 			if (r->status > t->maxdepstatus) t->maxdepstatus = r->status;
 		}
 	}
-	t->nblockers = t->newdeps.sz;
 	t->newdeps.sz = 0; // clear that list out now
+	// if there weren't any deps, send unblock message immediately, otherwise
+	// tell proc we're blocked
+	if (t->nblockers) {
+		proc_block();
+	}
+	else if (!ipcserver_send(t->base.ipcsock, &(struct ipc_reply){0})) {
+		goto e;
+	}
 	return;
 
 e:	errmsg_warn("couldn't handle dependency wait request");
@@ -373,9 +386,10 @@ static void proc_cb(int evtype, union proc_ev_param P, struct proc_info *proc) {
 				case IPC_REQ_WAIT: reqwait(t); break;
 				case IPC_REQ_INFILE: reqinfile(t, req.infile);
 			}
+			break;
 		case PROC_EV_UNBLOCK:
-			if (!ipcserver_send(t->base.ipcsock, &(struct ipc_reply){
-					t->maxdepstatus})) {
+			if (!ipcserver_send(t->base.ipcsock,
+					&(struct ipc_reply){t->maxdepstatus})) {
 				goto fail;
 			}
 			break;
