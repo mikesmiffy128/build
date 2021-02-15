@@ -1,23 +1,79 @@
+build - the correct tool for the job™
+
+Thank you for taking an interest in my software. This file should help you get
+it up and running to either use it on your machine, or mess around with the code
+if you feel so inclined.
+
 == HOW TO BUILD THE SOFTWARE ==
 
-build will build build. When that happens, just type build. Until then, you can
-use ./strap to bootstrap it. Installing is left as an exercise to the reader,
-but shouldn't be too complicated to figure out.
+build builds build. If you've built and installed build, just type `build`.
+If you haven't done that yet, use ./strap to bootstrap it.
 
-This thing relies on libc functions and declarations that you probably don't
+This project relies on libc functions and declarations that you probably don't
 have because your OS is bad. These are provided by libcpoly, my
 browser-polyfill-except-not-for-browsers:
 
   https://gitlab.com/mikesmiffy128/libcpoly
 
-The bootstrap script will use it if it's available in your exec, include and
-library paths. If it's not avaialable, it will complain until you install it
-properly, as there is no single Unix OS that provides all the required features
-without various annoying forms of hoop-jumping.
+The build scripts will use it if it's available in your exec, include and
+library paths. Otherwise, they will complain until you install it properly, as
+there is no single Unix OS that provides all the required features without
+various annoying forms of hoop-jumping and workarounds.
 
-build is developed and tested on Linux 5.10 with glibc 2.32, but should work
-under Linux with musl, the major BSDs and illumos as well. If it doesn't, that's
-a bug that'll need to be fixed before release.
+Oh, also: this project is set up for use with a Language Server such as ccls or
+clangd: `tools/mkcompdb` will generate an appropriate compile_commands.json.
+
+== HOW TO INSTALL THE SOFTWARE ==
+
+In an attempt to facilitate cross-compiling one day, installable files
+will end up in build/your_os-your_architecture-your_compiler-its_version/out/,
+unless a different build directory is specified (see Buildfile).
+
+It's your choice to plonk the installation into /usr/local or /usr/pkg, stage it
+into a proper package for your OS, or use something to install it into your home
+directory (setting PATH, LD_LIBRARY_PATH, LIBRARY_PATH, C_INCLUDE_PATH and
+MANPATH appropriately in a shell profile or .pam_environment file or something).
+
+Tools and techniques for installing to your home directory include:
+
+  Crude personal package managers:
+    https://gitlab.com/mikesmiffy128/lpkg
+    https://nullprogram.com/blog/2018/03/27/
+
+  Existing package managers like pkgsrc or Homebrew, in a custom prefix:
+    https://web.nmsu.edu/~brook/pkgsrc/
+    https://docs.brew.sh/Installation
+  [but of course you'd need to actually create a package for build, and if
+  someone did that, you'd probably just install it that way, right?]
+
+  FUSE bindfs‽
+
+You can also just use the "runbuild" script in this directory to run your
+freshly-compiled copy without having to install it anywhere, if you just want to
+test it out.
+
+If you're using something really stupid like NixOS or Gobo, you're on your own.
+
+== MAN PAGES ==
+
+build has full man page documentation, like any reasonable Unix thing.
+
+HOWEVER, currently the build system does *NOT* install man pages as part of the
+build, because it's not entirely clear where they should _go_. Base system man
+pages pretty universally go in /usr/share/man, but OpenBSD uses /usr/local/man
+for package man pages, so you can't simply do something like $PREFIX/share/man
+and have it work everywhere. Similarly, NetBSD uses /usr/pkg/man. man-db on
+Linux appears to not mind either /usr/local/share/man or /usr/local/man, but
+again, we can't just use "/man" as a universal directory name because then
+installing it to /usr would be definitely wrong everywhere.
+
+To make matters more awkward, plenty of Linux distributions compress man pages
+with gzip, as does FreeBSD, but OpenBSD and NetBSD do not. Chances are a few
+Linux distributions probably don't either.
+
+Coming up with a way to automate man page installation staging for every
+conceivable environment is a sufficiently annoying task that I don't want to do
+it, so it is up to you (and/or your OS packager one day) to figure that one out.
 
 == PROJECT STRUCTURE ==
 
@@ -33,8 +89,8 @@ TODO/    - issue tracking, see below
 scripts/ - scripts used as part of the build and testing process
 tools/   - scripts and snippets to support the development of the project
 
-build/   - compilation results - don't edit by hand!
-junk/    - doesn't exist, but is ignored by Git for your convenience
+build/   - default compile output directory
+junk/    - doesn't exist, but is ignored by Git so you can dump stuff there
 
 == DEVELOPMENT PROCESS ==
 
@@ -104,6 +160,3 @@ get cleaned up, but who cares, cleaning it up is merely a bonus).
 
 "bUt wHAt aBOuT cLOseS iDs In COmMIt MeSsAGeS?!"
 ... just move the file as part of the commit. Stop overcomplicating things.
-
-Oh, also: this project is set up for use with a Language Server such as ccls or
-clangd: `tools/mkcompdb` will generate an appropriate compile_commands.json.
