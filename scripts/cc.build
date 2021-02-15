@@ -1,0 +1,18 @@
+#!/bin/sh -e
+build-infile scripts/lib.sh
+. scripts/lib.sh
+
+build_dir="$1"
+cc="$2"
+cflags="$cflags $3"
+src="$4"
+obj="$5"
+
+mkdir -p "$build_dir"
+
+build-infile scripts/cdep
+build-infile -- `scripts/cdep "$src" | awk '!x[$0]++'` >&2
+
+$cc -c $cflags -o "$obj" "$src"
+
+# vi: sw=4 ts=4 noet tw=80 cc=80

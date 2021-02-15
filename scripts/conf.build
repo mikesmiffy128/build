@@ -1,0 +1,34 @@
+#!/bin/sh -e
+build-infile scripts/lib.sh
+. scripts/lib.sh
+
+build_dir="$1"
+cc="$2"
+cc_type="$3"
+target_os="$4"
+
+# -O2 produces smaller code than -O3 and speed shouldn't be hugely affected;
+# using less icache might even be better
+cflags="-O2 -fpic -Wall -pedantic -Werror=implicit-function-declaration \
+-Werror=vla -Wno-parentheses -Wno-missing-braces -Wno-misleading-indentation \
+-Icbits/include"
+ldflags="-O2 -fpic -s $extra_ldflags"
+
+# NOTE to future packagers: create local.conf.sh to override or extend the flags
+# above (in weird scenarios where that's necessary for some reason...)
+build-infile local-conf.sh
+if [ -f local-conf.sh ]; then . ./local-conf.sh; fi
+
+use cc-conf
+use find-cpoly
+
+cflags="$cflags $cpoly_cflags $extra_cflags"
+ldflags="$ldflags $cpoly_ldflags $extra_ldflags"
+
+mkdir -p "$build_dir"
+echo "cc='`shellesc "$cc"`'
+cflags='`shellesc "$cflags"`'
+ldflags='`shellesc "$ldflags"`'
+" > "$build_dir/config"
+
+# vi: sw=4 ts=4 noet tw=80 cc=80

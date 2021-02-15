@@ -70,7 +70,7 @@ r:	if (canon == start) return FPATH_EMPTY;
 const char *fpath_errorstring(enum fpath_err e) {
 	switch (e) {
 		case FPATH_OK: return 0;
-		case FPATH_EMPTY: return "empty string for path";
+		case FPATH_EMPTY: return "path is an empty string";
 		case FPATH_ABSOLUTE: return "tried to use an absolute path";
 		case FPATH_OUTSIDE: return "path points outside the build system";
 		case FPATH_TRAILSLASH: return "path has an unexpected trailing slash";

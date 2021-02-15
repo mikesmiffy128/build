@@ -1,0 +1,12 @@
+#!/bin/sh -e
+
+dir="`dirname "$0"`"
+export LD_LIBRARY_PATH="$dir/build/default/out/lib:$LD_LIBRARY_PATH"
+export PATH="$dir/build/default/out/bin:$PATH"
+if ! [ -x "$dir/build/default/out/bin/build" ]; then
+	echo "build hasn't been built, try ./strap" >&2
+	exit 1
+fi
+exec build "$@"
+
+# vi: sw=4 ts=4 noet tw=80 cc=80

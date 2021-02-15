@@ -156,7 +156,7 @@ static void do_start(const char *const *argv, const char *workdir,
 		dup2(errsock[1], 2);
 		execve(prog, (char *const *)argv, procenv);
 		errmsg_warn("child: ", msg_fatal, "couldn't exec ", prog);
-ce:		if (errno == ENOENT || errno == EPERM) {
+ce:		if (errno == ENOENT || errno == EACCES) {
 			// we can actually cache this result, there's still an infile!
 			_exit(2);
 		}
@@ -191,7 +191,7 @@ static void qpop(void) {
 	--qlen;
 	q_head = q->next;
 	if (!q_head) q_tail = &q_head; // last &next is gone, reset tail to head
-	if (q->procaddr & 1) do_unblock((struct proc_info *)(q->procaddr & ~1u));
+	if (q->procaddr & 1) do_unblock((struct proc_info *)(q->procaddr & -2ul));
 	else do_start(q->argv, q->workdir, (struct proc_info *)q->procaddr);
 	freelist_free_q(q);
 }

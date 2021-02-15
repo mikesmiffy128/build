@@ -5,7 +5,7 @@
 
 #include "ipc.h"
 
-bool ipcserver_recv(int fd, struct ipc_req *msg);
+bool ipcserver_recv(int fd, struct ipc_req *msg, const char *taskworkdir);
 bool ipcserver_send(int fd, const struct ipc_reply *msg);
 
 #endif

@@ -30,8 +30,8 @@ static uint nexttaskid = 0; // just a serial number
 
 static bool savesymstr(const char *name, const char *val) {
 	// create a new symlink and rename it to atomically replace the old one
-	// NOTE: this could break if someone is poking around .builddb at the same
-	// time. adequate solution: don't do that.
+	// this could break if someone is poking around .builddb at the same time.
+	// adequate solution: don't do that.
 	unlinkat(db_dirfd, "symnew", 0); // in case it was left due to a crash
 	if (symlinkat(val, db_dirfd, "symnew") == -1) return false;
 	if (renameat(db_dirfd, "symnew", db_dirfd, name) == -1) {
@@ -110,8 +110,8 @@ void db_init(void) {
 		}
 	}
 	else if (errno == EINVAL) {
-		// status 1: user has messed with something, not our fault!
-		errmsg_diex(1, msg_fatal, "task database version is ", errstr);
+		// status 2: user has messed with something, not our fault!
+		errmsg_diex(2, msg_fatal, "task database version is ", errstr);
 	}
 	else if (errno) {
 		errmsg_die(100, msg_fatal, "couldn't read task database version");

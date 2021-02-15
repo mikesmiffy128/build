@@ -1,0 +1,24 @@
+#!/bin/sh -e
+build-infile scripts/lib.sh
+. scripts/lib.sh
+
+build_dir="$1"
+cc="$2"
+cc_type="$3"
+target_os="$4"
+
+build-dep scripts/conf.build "$build_dir" "$cc" "$cc_type" "$target_os"
+. "$build_dir/config"
+
+ldflags="$ldflags $pie -lbuild"
+
+out=bin/build-dep
+libs=libbuild
+src="\
+	src/build-dep.c
+	cbits/src/errmsg.c
+	cbits/src/errorstring.c
+	cbits/src/iobuf.c"
+use link
+
+# vi: sw=4 ts=4 noet tw=80 cc=80

@@ -3,9 +3,12 @@
 . scripts/lib.sh
 if [ "$CC" != "" ]; then cc="$CC"; else . scripts/cc-pick.sh; fi
 . scripts/cc-target.sh
+. scripts/cc-info.sh
 . scripts/cc-conf.sh
+. scripts/cc-pref.sh
 
 # Manage expectations!
+# XXX this is a duplicate of the warning in Buildfile
 case "$target_os" in
 	linux) ;;
 	macos)
@@ -19,9 +22,8 @@ case "$target_os" in
 		warn "* let me know how you get on! *" ;;
 esac
 
-cflags="-O3 -fpic -Wall -Werror=implicit-function-declaration -Werror=vla \
--Wno-parentheses -Wno-missing-braces -Wno-misleading-indentation"
-ldflags="-O3 -fpic -s"
+cflags="-O0 -fpic -w"
+ldflags="-O0 -fpic"
 test_cflags=
 
 if is_cmd cpoly-config; then
@@ -46,11 +48,11 @@ fi
 
 mkdir -p build/strap/bin build/strap/lib
 
-# XXX could compile separate objects in parallel, I *guess*, but building hardly
-# takes long anyway so not a high priority
-# XXX could also at least reuse objects, that might be more worthwhile, idunno
+warn "note: compiling unoptimised bootstrap version"
+warn "      this will take a moment because modern compilers are ridiculously slow"
+
 num_items=4 # ← remember to change this manually
-is_tty && printf "[0/$num_items] build" || :
+is_tty && printf "[0/$num_items] build " || :
 $cc $cflags $extra_cflags $cpoly_cflags $ldflags $extra_ldflags $pie $cpoly_ldflags \
 -Icbits/include \
 src/blake2b.c \
@@ -74,7 +76,7 @@ cbits/src/iobuf.c \
 cbits/src/path.c \
 -o build/strap/bin/build
 
-is_tty && printf "\r[K[1/$num_items] libbuild" || :
+is_tty && printf "\r[K[1/$num_items] libbuild " || :
 $cc -shared $cflags $extra_cflags $cpoly_cflags $ldflags $extra_ldflags $cpoly_ldflags \
 -fvisibility=hidden \
 -Icbits/include \
@@ -85,7 +87,7 @@ cbits/src/errorstring.c \
 cbits/src/iobuf.c \
 -o build/strap/lib/libbuild.so
 
-is_tty && printf "\r[K[2/$num_items] build-dep" || :
+is_tty && printf "\r[K[2/$num_items] build-dep " || :
 $cc $cflags $extra_cflags $cpoly_cflags $ldflags $extra_ldflags $pie $cpoly_ldflags \
 -Icbits/include \
 -Lbuild/strap/lib -lbuild \
@@ -95,7 +97,7 @@ cbits/src/errorstring.c \
 cbits/src/iobuf.c \
 -o build/strap/bin/build-dep
 
-is_tty && printf "\r[K[3/$num_items] build-infile" || :
+is_tty && printf "\r[K[3/$num_items] build-infile " || :
 $cc $cflags $extra_cflags $cpoly_cflags $ldflags $extra_ldflags $pie $cpoly_ldflags \
 -Icbits/include \
 -Lbuild/strap/lib -lbuild \
@@ -106,5 +108,22 @@ cbits/src/iobuf.c \
 -o build/strap/bin/build-infile
 
 is_tty && printf "\r[K" || :
+
+# note: this step sort of precludes cross-compiling from strap, but that's okay,
+# we can bootstrap locally and use that to cross-compile to elsewhere!)
+warn "note: now confirming that build works by using it to build itself!"
+(
+	export LD_LIBRARY_PATH="build/strap/lib:$LD_LIBRARY_PATH"
+	export PATH="build/strap/bin:$PATH"
+	# blegh
+	if [ "$CC" = "" ]; then
+		exec build
+	else
+		exec build ./Buildfile cc="$cc"
+	fi
+)
+
+warn "success! installation files are in build/default/out"
+warn "         you can also invoke build without installing using ./runbuild"
 
 # vi: sw=4 ts=4 noet tw=80 cc=80

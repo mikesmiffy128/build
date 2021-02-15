@@ -13,6 +13,7 @@
 #include <fmt.h>
 #include <intdefs.h>
 #include <noreturn.h>
+#include <path.h>
 #include <str.h>
 #include <table.h>
 #include <vec.h>
@@ -172,7 +173,7 @@ static noreturn handle_failure(struct task *t, int status) {
 		obuf_reset(buf_err);
 		fd_transferall(t->fd_err, 2);
 	}
-	closetask(t);
+	//closetask(t); pointless for now since we're just dying
 	exit_failure(status);
 }
 
@@ -229,6 +230,7 @@ e:	free(deplist.data); free(infilelist.data);
 r:	if (t->haderr) showerr(s, t->fd_err);
 	if (t == goal) goalstatus = status; // XXX stupid
 	if (!--nstarted) exit_clean(status); // "
+	table_del_activetask(&activetasks, t->desc);
 	closetask(t);
 	free(s);
 }
@@ -305,6 +307,18 @@ static bool reqdep(struct task *req, struct task_desc dep, bool isgoal) {
 
 r:	*active = opentask(dep, r->id); // this has to be new; see above
 	if (!*active) goto e;
+	// create the implicit infile, but only for programs inside the source tree
+	if (path_isfull(dep.argv[0])) {
+		char *canon = malloc(strlen(dep.argv[0]) + 1);
+		if (!canon) goto e;
+		if (fpath_canon(dep.argv[0], canon, 0) == FPATH_OK) {
+			const char *infile = db_intern_free(canon);
+			if (!infile) goto e;
+			const char **pp = table_put_infile(&(*active)->infiles, infile);
+			if (!pp) goto e;
+			*pp = infile;
+		}
+	}
 	if (isgoal) goal = *active; // XXX also stupid
 	(*active)->outresult = r;
 	table_transactcommit_activetask(&activetasks);
@@ -312,7 +326,8 @@ r:	*active = opentask(dep, r->id); // this has to be new; see above
 	++nstarted;
 	return false;
 
-e:	errmsg_warn("couldn't handle dependency request");
+	// XXX one day, make this more granular instead of just dying on the spot
+e:	errmsg_warn("couldn't create task dependency");
 	exit_failure(100);
 }
 
@@ -380,11 +395,14 @@ static void proc_cb(int evtype, union proc_ev_param P, struct proc_info *proc) {
 			break;
 		case PROC_EV_IPC:;
 			struct ipc_req req;
-			if (!ipcserver_recv(t->base.ipcsock, &req)) goto fail;
+			if (!ipcserver_recv(t->base.ipcsock, &req, t->desc.workdir)) {
+				if (errno == EINVAL) goto qfail; // error reported by ipcserver
+				goto fail;
+			}
 			switch (req.type) {
 				case IPC_REQ_DEP: reqdep(t, req.dep, false); break;
 				case IPC_REQ_WAIT: reqwait(t); break;
-				case IPC_REQ_INFILE: reqinfile(t, req.infile);
+				case IPC_REQ_INFILE: if (!reqinfile(t, req.infile)) goto fail;
 			}
 			break;
 		case PROC_EV_UNBLOCK:
@@ -397,7 +415,7 @@ static void proc_cb(int evtype, union proc_ev_param P, struct proc_info *proc) {
 fail:;		char *s = desctostr(&t->desc);
 			errmsg_warn(msg_error, "couldn't handle event from task `", s, "`");
 			free(s);
-			handle_failure(t, 100);
+qfail:		handle_failure(t, 100);
 	}
 }
 

@@ -1,0 +1,33 @@
+#!/bin/sh -e
+
+# TODO(cdep) because I've yet to write a proper dependency analyser, this
+# simple crude script is used for the project for now.
+
+# Include-guarded headers may be listed twice; cc.build dedupes the results
+# itself before sending them to build-infile
+
+echo "$1"
+dir="`dirname "$1"`"
+sed -ne 's/^\#include //p' "$1" |
+	sed 's/[>"]$//g' |
+	while read -r i; do
+		case "$i" in
+			\"*) f="$dir/${i##\"}" ;;
+			# hardcoded system headers to skip - not strictly necessary but
+			# gives the build system less to check
+			\<errno.h) ;;
+			\<fcntl.h) ;;
+			\<limits.h) ;;
+			\<poll.h) ;;
+			\<signal.h) ;;
+			\<std*.h) ;;
+			\<string.h) ;;
+			\<sys/*.h) ;;
+			\<unistd.h) ;;
+			\<*) f="cbits/include/${i##<}" ;; # XXX hardcoded -I search path
+		esac
+		echo "$f"
+		if [ -f "$f" ]; then "$0" "$f"; fi
+	done
+
+# vi: sw=4 ts=4 noet tw=80 cc=80

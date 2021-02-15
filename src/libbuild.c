@@ -21,6 +21,15 @@ static void init(const char *forfunc) {
 
 export void build_dep(const char *const *argv, const char *workdir) {
 	if (sockfd == -1) init("build_dep");
+	// validate strings: the IPC server code is lazy and just says
+	// "invalid message" and crashes the whole build, whereas it's easier to put
+	// this check in the context of each task (ie here) and then error messages
+	// and return codes and whatnot will just make their way through the build
+	// system as intended
+	if (!workdir[0]) {
+		errmsg_diex(2, "libbuild: ", msg_fatal,
+				"working directory cannot be empty");
+	}
 	struct ipc_req req;
 	req.type = IPC_REQ_DEP;
 	req.dep.argv = argv;
@@ -47,6 +56,9 @@ export int build_dep_wait(void) {
 
 export void build_infile(const char *path) {
 	if (sockfd == -1) init("build_infile");
+	if (!path[0]) {
+		errmsg_diex(2, "libbuild: ", msg_fatal, "infile path cannot be empty");
+	}
 	struct ipc_req req;
 	req.type = IPC_REQ_INFILE;
 	req.infile = path;

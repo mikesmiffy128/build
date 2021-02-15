@@ -2,6 +2,7 @@
 /.builddb/
 # gimme a place to dump random tests and stuff
 /junk/
-
+# let users or packagers tweak flags etc
+local-conf.sh
 # annoying stuff that ideally wouldn't exist at all :(
 /compile_commands.json

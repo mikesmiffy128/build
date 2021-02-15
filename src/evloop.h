@@ -1,7 +1,8 @@
 #ifndef INC_EVLOOP_H
 #define INC_EVLOOP_H
 
-#include <poll.h> // XXX leaky abstraction :(
+// somewhat leaky abstraction, but oh well:
+#include <poll.h>
 #include <stdbool.h>
 
 #include <intdefs.h>

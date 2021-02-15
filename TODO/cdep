@@ -1,0 +1,10 @@
+Proper C/C++/ObjC dependency analyser
+====
+Right now build itself uses scripts/cdep to get header dependencies, and that
+works well enough because there's no conditional includes, generated headers or
+very complex include paths in this project.
+
+However, for general-purpose stuff it would be good to have a real program for
+the purpose of figuring out which headers are used. Ideally it would essentially
+implement the same logic as a C preprocessor so it looks things up in the same
+way as an actual compiler.
