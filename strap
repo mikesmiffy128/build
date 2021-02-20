@@ -4,11 +4,8 @@
 if [ "$CC" != "" ]; then cc="$CC"; else . scripts/cc-pick.sh; fi
 . scripts/cc-target.sh
 . scripts/cc-info.sh
-. scripts/cc-conf.sh
-. scripts/cc-pref.sh
 
 # Manage expectations!
-# XXX this is a duplicate of the warning in Buildfile
 case "$target_os" in
 	linux) ;;
 	macos)
@@ -22,8 +19,8 @@ case "$target_os" in
 		warn "* let me know how you get on! *" ;;
 esac
 
-cflags="-O0 -fpic -w"
-ldflags="-O0 -fpic"
+cflags="-O0 -w"
+ldflags="-O0"
 test_cflags=
 
 if is_cmd cpoly-config; then
@@ -53,9 +50,8 @@ warn "      this will take a moment because modern compilers are ridiculously sl
 
 num_items=4 # ← remember to change this manually
 is_tty && printf "[0/$num_items] build " || :
-$cc $cflags $extra_cflags $cpoly_cflags $ldflags $extra_ldflags $pie $cpoly_ldflags \
+$cc $cflags $cpoly_cflags $ldflags $pie $cpoly_ldflags \
 -Icbits/include \
-src/blake2b.c \
 src/build.c \
 src/db.c \
 src/db-strpool.c \
@@ -77,7 +73,7 @@ cbits/src/path.c \
 -o build/strap/bin/build
 
 is_tty && printf "\r[K[1/$num_items] libbuild " || :
-$cc -shared $cflags $extra_cflags $cpoly_cflags $ldflags $extra_ldflags $cpoly_ldflags \
+$cc -shared $cflags $cpoly_cflags $ldflags $cpoly_ldflags \
 -fvisibility=hidden \
 -Icbits/include \
 src/ipcclient.c \
@@ -88,7 +84,7 @@ cbits/src/iobuf.c \
 -o build/strap/lib/libbuild.so
 
 is_tty && printf "\r[K[2/$num_items] build-dep " || :
-$cc $cflags $extra_cflags $cpoly_cflags $ldflags $extra_ldflags $pie $cpoly_ldflags \
+$cc $cflags $cpoly_cflags $ldflags $cpoly_ldflags \
 -Icbits/include \
 -Lbuild/strap/lib -lbuild \
 src/build-dep.c \
@@ -98,7 +94,7 @@ cbits/src/iobuf.c \
 -o build/strap/bin/build-dep
 
 is_tty && printf "\r[K[3/$num_items] build-infile " || :
-$cc $cflags $extra_cflags $cpoly_cflags $ldflags $extra_ldflags $pie $cpoly_ldflags \
+$cc $cflags $cpoly_cflags $ldflags $cpoly_ldflags \
 -Icbits/include \
 -Lbuild/strap/lib -lbuild \
 src/build-infile.c \

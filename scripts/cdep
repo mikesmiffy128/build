@@ -9,7 +9,7 @@
 echo "$1"
 dir="`dirname "$1"`"
 sed -ne 's/^\#include //p' "$1" |
-	sed 's/[>"]$//g' |
+	sed 's/[>"]$//' |
 	while read -r i; do
 		case "$i" in
 			\"*) f="$dir/${i##\"}" ;;

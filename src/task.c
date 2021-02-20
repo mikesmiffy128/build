@@ -18,7 +18,6 @@
 #include <table.h>
 #include <vec.h>
 
-#include "blake2b.h"
 #include "build.h"
 #include "db.h"
 #include "defs.h"
@@ -220,8 +219,10 @@ static void handle_success(struct task *t, int status) {
 	free((void *)r->deps);
 	r->deps = deplist.data; r->ndeps = deplist.sz;
 	free((void *)r->infiles);
-	r->infiles = infilelist.data; r->ndeps = infilelist.sz;
+	r->infiles = infilelist.data; r->ninfiles = infilelist.sz;
+	r->newness = db_newness;
 	db_committaskresult(r);
+	r->checked = true;
 	goto r;
 
 e:	free(deplist.data); free(infilelist.data);
@@ -229,7 +230,7 @@ e:	free(deplist.data); free(infilelist.data);
 	errmsg_warnx(msg_note, "redundant reruns will happen later");
 r:	if (t->haderr) showerr(s, t->fd_err);
 	if (t == goal) goalstatus = status; // XXX stupid
-	if (!--nstarted) exit_clean(status); // "
+	if (!--nstarted) exit_clean(goalstatus); // "
 	table_del_activetask(&activetasks, t->desc);
 	closetask(t);
 	free(s);
@@ -247,87 +248,90 @@ static bool reqinfile(struct task *t, const char *infile) {
 	return true;
 }
 
-static bool reqdep(struct task *req, struct task_desc dep, bool isgoal) {
-	struct db_taskresult *r = db_gettaskresult(dep);
-	if (!r) goto e;
-	if (r->newness == db_newness) return false; // it's already done AND checked
+// returns true if requester would need to rerun
+static bool reqdep(struct task *req, struct task_desc dep, bool isgoal,
+		int reqnewness) {
 	if (req) {
 		bool isnew;
 		struct task_desc *d = table_putget_taskdesc(&req->deps, dep, &isnew);
 		if (!d || isnew && !vec_push(&req->newdeps, dep)) goto e;
 		*d = dep;
 	}
-	bool activeisnew;
-	struct task **active = table_putget_transact_activetask(&activetasks, dep,
-			&activeisnew);
-	if (!active) goto e;
-	if (!activeisnew) { // it's already running
+	// ideally we'd avoid doing a get and then a put later but transact doesn't
+	// work recursively (that was a fun time debugging...) so this is simpler
+	// than trying to put and then back out again later (also literally none of
+	// this matters since forking a process probably takes much longer than a
+	// typical hash insert, so literally who cares)
+	if (table_get_activetask(&activetasks, dep)) {
 		// FIXME: put the cycle check in here!
 		return true;
 	}
+	struct db_taskresult *r = db_gettaskresult(dep);
+	if (!r) goto e;
 	if (r->newness == 0) goto r; // it's newly created!
+	if (r->checked) return r->newness > reqnewness;
 	// if haven't checked up-to-date-ness in this run, do a depth first search
 	for (const struct task_desc *dep = r->deps; dep - r->deps < r->ndeps;
 			++dep) {
 		// currently rerunning all deps preemptively/concurrently
 		// it's up for debate/testing whether this is the universally
 		// best-performing approach
-		if (reqdep(0, *dep, false)) goto r;
+		if (reqdep(0, *dep, false, r->newness)) goto r;
 	}
 	// only check infiles if wouldn't already rerun - avoid the stat() calls!
 	for (const char *const *pp = r->infiles; pp - r->infiles < r->ninfiles;
 			++pp) {
-		uint newness = infile_query(*pp, r->newness);
-		if (newness == -1u) {
+		int ret = infile_query(*pp, r->newness);
+		if (ret == -1) {
 			errmsg_warn(msg_warn, "couldn't query infile ", *pp);
 			errmsg_warnx(msg_note, "resorting to a maybe-redundant task rerun");
-			goto r;
 		}
-		if (newness > r->newness) goto r;
+		if (ret) goto r;
 	}
-	r->newness = db_newness; // mark this as fully up to date for the future!
-	// no point committing newness change to db; won't affect next run!
-	//db_committaskresult(t);
 	// we only get here once per up-to-date run - stick the error output here!
-	char *s = desctostr(&dep);
 	char buf[12];
 	buf[0] = 'E';
 	buf[1 + fmt_fixed_u32(buf + 1, r->id)] = '\0';
 	int fd = openat(db_dirfd, buf, O_RDONLY);
 	if (fd != -1) {
+		char *s = desctostr(&dep);
 		showerr(s, fd);
 		close(fd);
+		free(s);
 	}
 	else if (errno != ENOENT) {
+		char *s = desctostr(&dep);
 		errmsg_warn(msg_warn, "can't display error output from task `", s, "`");
+		free(s);
 	}
 	if (isgoal) exit_clean(r->status); // XXX this is stupid
-	free(s);
-	return false;
+	r->checked = true;
+	return r->newness > reqnewness;
 
-r:	*active = opentask(dep, r->id); // this has to be new; see above
-	if (!*active) goto e;
+r:;	struct task **tp = table_put_activetask(&activetasks, dep);
+	if (!tp) goto e;
+	*tp = opentask(dep, r->id);
+	if (!*tp) goto e;
 	// create the implicit infile, but only for programs inside the source tree
 	if (path_isfull(dep.argv[0])) {
 		char *canon = malloc(strlen(dep.argv[0]) + 1);
 		if (!canon) goto e;
 		if (fpath_canon(dep.argv[0], canon, 0) == FPATH_OK) {
 			const char *infile = db_intern_free(canon);
-			if (!infile) goto e;
-			const char **pp = table_put_infile(&(*active)->infiles, infile);
+			if (!infile || !infile_ensure(infile)) goto e;
+			const char **pp = table_put_infile(&(*tp)->infiles, infile);
 			if (!pp) goto e;
 			*pp = infile;
 		}
 	}
-	if (isgoal) goal = *active; // XXX also stupid
-	(*active)->outresult = r;
-	table_transactcommit_activetask(&activetasks);
-	proc_start(&(*active)->base, (*active)->desc.argv, (*active)->desc.workdir);
+	if (isgoal) goal = *tp; // XXX also stupid
+	(*tp)->outresult = r;
+	proc_start(&(*tp)->base, (*tp)->desc.argv, (*tp)->desc.workdir);
 	++nstarted;
-	return false;
+	return true;
 
 	// XXX one day, make this more granular instead of just dying on the spot
-e:	errmsg_warn("couldn't create task dependency");
+e:	errmsg_warn("couldn't handle task dependency");
 	exit_failure(100);
 }
 
@@ -400,7 +404,8 @@ static void proc_cb(int evtype, union proc_ev_param P, struct proc_info *proc) {
 				goto fail;
 			}
 			switch (req.type) {
-				case IPC_REQ_DEP: reqdep(t, req.dep, false); break;
+				case IPC_REQ_DEP:
+					reqdep(t, req.dep, false, t->outresult->newness); break;
 				case IPC_REQ_WAIT: reqwait(t); break;
 				case IPC_REQ_INFILE: if (!reqinfile(t, req.infile)) goto fail;
 			}
@@ -427,7 +432,7 @@ void task_init(void) {
 }
 	
 void task_goal(const char *const *argv, const char *workdir) {
-	reqdep(0, (struct task_desc){argv, workdir}, true);
+	reqdep(0, (struct task_desc){argv, workdir}, true, 0);
 }
 
 // vi: sw=4 ts=4 noet tw=80 cc=80

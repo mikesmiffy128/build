@@ -10,17 +10,20 @@
 
 struct db_infile {
 	uint newness;
-	uint mode; // (mode, uid and gid are moved up for packing)
+	// there shouldn't be more than 16 mode bits, but mode_t is 32-bit!?
+	// here we assume the topmost bit is never used, for the sake of packing
+	uint mode : 31;
+	bool checked : 1; // did we check in this current run? (NOT saved to disk!)
 	uid_t uid; gid_t gid;
 	uvlong len; // if nonexistent, this is -1 and the rest is undefined
-	// otherwise:
 	uvlong inode;
 };
 
 struct db_taskresult {
 	uint newness;
 	uchar status;
-	// char padding[3]; :(
+	bool checked; // also not saved to disk
+	// char padding[2]; :(
 	uint id; // used for unique out/err filenames
 	uint ninfiles, ndeps; // counts (together for packing)
 	// char ugh_even_more_padding[4];
@@ -51,7 +54,7 @@ extern uint db_newness;
 /*
  * These functions either return exising entries from the db or create new ones
  * in memory without committing - either way, changes have to be committed using
- * db_commit*(). Newly created entries get a special low newness value of 0.
+ * db_commit*(). Newly created entries get a "special" newness value of 0.
  */
 struct db_infile *db_getinfile(const char *path);
 struct db_taskresult *db_gettaskresult(struct task_desc desc);

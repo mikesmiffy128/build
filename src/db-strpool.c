@@ -7,6 +7,7 @@
 #include <intdefs.h>
 #include <iobuf.h>
 #include <table.h>
+#include <vec.h>
 
 #include "db.h"
 #include "fd.h"
@@ -19,13 +20,14 @@
 // fixed-length IDs, saving space.
 
 static int fd;
-ulong curid = 0;
 
 // Important note: this table is based on the idea that FNV1a + a length should
 // never collide. If they ever do, we'll need a bigger hash (blake2 maybe??) to
 // avoid disaster.
 struct ent {
 	uvlong hash_and_len; // precomputed!
+	uint idx; // position in ordered list (below)
+	// char padding[4];
 	const char *s;
 };
 DECL_TABLE(static, strpool, uvlong, struct ent)
@@ -41,38 +43,26 @@ static uvlong strlen_and_hash(const char *s) {
 	return (uvlong)h | (uvlong)len << 32;
 }
 
-// secondary hashtable mapping pointers to on-disk IDs for serialisation
-// purposes
-struct fileid_lookup {
-	const char *s;
-	ulong fileid;
-};
-DECL_TABLE(static, fileid, const char *, struct fileid_lookup)
-static inline const char *kmemb_fileid(struct fileid_lookup *e) { return e->s; }
-DEF_TABLE(static, fileid, hash_ptr, table_ideq, kmemb_fileid)
-static struct table_fileid ids;
+struct list VEC(const char *);
+static struct list indexed = {0};
 
 void strpool_init(void) {
 	if (!table_init_strpool(&tab)) {
 		errmsg_die(100, msg_fatal, "couldn't create string pool table");
 	}
-	if (!table_init_fileid(&ids)) {
-		errmsg_die(100, msg_fatal, "couldn't create string ID table");
-	}
 	fd = openat(db_dirfd, "strings", O_CREAT | O_RDWR | O_CLOEXEC, 0644);
 	if (fd == -1) errmsg_die(100, "couldn't open .builddb/strings");
-	// XXX add a nice API for stack-based bufs to cbits if possible...
-	char _b[sizeof (struct ibuf) + 65536];
-	struct ibuf *b = (struct ibuf *)_b;
-	b->fd = fd;
-	b->sz = 0;
-	b->r = 0;
-	b->w = 0;
+	union {
+		struct ibuf b;
+		char x[sizeof(struct ibuf) + 65536];
+	} _b;
+	struct ibuf *b = &_b.b;
+	*b = (struct ibuf){fd, 65536};
 	for (;;) {
 		uvlong hl;
 		int nread = ibuf_getbytes(b, &hl, sizeof(hl));
 		if (nread == -1) goto e;
-		if (nread == 0) return; // EOF here is fine! we're done!
+		if (nread == 0) break; // EOF here is fine! we're done!
 		if (nread != sizeof(hl)) goto eof;
 		uint len = hl >> 32;
 		char *s = malloc(len + 1);
@@ -80,23 +70,21 @@ void strpool_init(void) {
 		s[len] = '\0';
 		// XXX/FIXME: getbytes len can't be this big, potential overflow
 		// (although in practice no string should be this big)
-		nread = ibuf_getbytes(b, &s, len);
+		nread = ibuf_getbytes(b, s, len);
 		if (nread == -1) goto e;
 		if (nread != len) goto eof;
 		// vec_pop(&s); // remove the extra \0 - doesn't actually matter here
 		struct ent *e = table_put_strpool(&tab, hl);
-		struct fileid_lookup *id = table_put_fileid(&ids, s);
-		if (!e || !id) goto e;
+		if (!e) goto e;
 		e->hash_and_len = hl;
 		e->s = s;
-		id->s = s;
-		// just use order in file; we only append so this is stable
-		id->fileid = curid++;
+		if (!vec_push(&indexed, s)) goto e;
+		e->idx = indexed.sz - 1;
 	}
 
 	return;
 eof:errmsg_diex(2, msg_fatal, "invalid strings file: unexpected EOF");
-e:	errmsg_die(100, msg_fatal, "couldn't read .builddb/strings");
+e:	errmsg_die(100, msg_fatal, "couldn't load strings database");
 }
 
 const char *db_intern(const char *s) {
@@ -105,11 +93,7 @@ const char *db_intern(const char *s) {
 	struct ent *e = table_putget_transact_strpool(&tab, hl, &isnew);
 	if (!e) return 0;
 	if (isnew) {
-		struct fileid_lookup *id = table_putget_transact_fileid(&ids, s, &isnew);
-		if (!id) return 0;
-		// assuming new here
-		id->s = s;
-		id->fileid = curid;
+		if (!vec_push(&indexed, s)) return 0;
 		uint len = hl >> 32;
 		vlong pos = lseek(fd, 0, SEEK_CUR);
 		// XXX this isn't power-fail-safe, must decide whether I care about that
@@ -122,9 +106,8 @@ const char *db_intern(const char *s) {
 		}
 		e->hash_and_len = hl;
 		e->s = s;
-		++curid;
+		e->idx = indexed.sz - 1;
 		table_transactcommit_strpool(&tab);
-		table_transactcommit_fileid(&ids);
 	}
 	return e->s;
 }
@@ -136,6 +119,11 @@ const char *db_intern_free(char *s) {
 }
 
 // assumes the string is actually in there
-const ulong strpool_fileid(const char *s) {
-	return table_get_fileid(&ids, s)->fileid;
+uint strpool_getidx(const char *s) {
+	return table_get_strpool(&tab, strlen_and_hash(s))->idx;
+}
+
+// assumes the index is actually in there
+const char *strpool_fromidx(uint idx) {
+	return indexed.data[idx];
 }

@@ -14,7 +14,7 @@ Some random notes on the task database (db.c)
   dependency database.
 
   Internally, a newness of 0 also indicates that a task was just requested for
-  the first time, so it definitely has to be rerun (no need to even check for
+  the first time, so it definitely has to be run (no need to even check for
   dependencies).
 
   Another option would be to just use a monotonic wall-clock timestamp (ie TAI),

@@ -6,16 +6,26 @@ must-have, but noted down nonetheless just as a reminder for some rainy day in
 the future.
 
 At this point all the db logic has been pulled into one place, db.c, which
-does sort of try to optimise for size (string pool is saved to disk, every other
-string just references the pool, tasks reference dependencies by file offset).
+does sort of try to optimise for size (string pool is saved to disk, every
+string just references the pool) as well as simplicity of implementation.
 However, nothing fancy is being done for speed. Right now the whole thing is
 just read in on startup and written out on exit. Committing individual infile or
-task entries is a no-op.
+task entries just sets a flag to write out the whole thing.
 
 Relatively easy efficiency improvement for later:
 Update infile entries by pwrite()-ing over the existing ones, update task
 results in an append-only manner (due to variable length) but have some sort of
 compaction process that happens every so often.
+
+Slightly harder improvement instead of that:
+Figure out how to get a fixed mmap() range in a totally reliable way (for some
+reason THIS is the hard part!!) and then just have a malloc() that works
+entirely inside of the blob so that the whole thing just automatically syncs to
+disk. This will make loads pretty much instantaneous no matter how large the
+database is, at the cost of making saving ever so slightly less robust, but
+probably not in a way that matters. It also makes accessing the data in tables
+and stuff really really easy, as everything is still just pointers, no need for
+offsets or anything.
 
 Alternatively, just hook up some actual existing DB engine, but I'm not sure
 what fits the bill.

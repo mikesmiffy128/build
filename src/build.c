@@ -77,10 +77,9 @@ int main(int argc, char *argv[]) {
 	evloop_init();
 	db_init();
 	for (const char **pp = command; *pp; ++pp) {
-		const char *s = db_intern(*pp);
-		if (!s) errmsg_die(100, msg_fatal, "couldn't intern string");
-		*pp = s; // just reuse the argv space - why not? deps that come in later
-				 // will get malloced of course
+		// reuse argv space for interned strings, might as well avoid malloc()
+		*pp = db_intern(*pp);
+		if (!*pp) errmsg_die(100, msg_fatal, "couldn't intern string");
 	}
 	char canonworkdir[PATH_MAX];
 	enum fpath_err e = fpath_canon(workdir, canonworkdir, 0);

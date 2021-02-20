@@ -49,8 +49,9 @@ Tools and techniques for installing to your home directory include:
   FUSE bindfs‽
 
 You can also just use the "runbuild" script in this directory to run your
-freshly-compiled copy without having to install it anywhere, if you just want to
-test it out.
+freshly-compiled copy without having to install it anywhere, but this may be
+unreliable for various reasons, so it is recommended that you install and use a
+known working, stable version for general-purpose usage.
 
 If you're using something really stupid like NixOS or Gobo, you're on your own.
 
@@ -83,7 +84,8 @@ quick tour:
 src/     - implementation source code
 test/    - automated tests: sanity checks and regression coverage
 include/ - public headers, to be installed along with the software
-man/     - manual pages to be installed along with the software
+cbits/   - miscellaneous shared utility code, some of which is used extensively
+man/     - manual pages to be installed along with the software (see above)
 DevDocs/ - notes, rants, random information that might come in handy
 TODO/    - issue tracking, see below
 scripts/ - scripts used as part of the build and testing process

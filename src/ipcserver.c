@@ -20,8 +20,12 @@ static struct ibuf *I = IBUF(-1, 16384);
 			errno = EINVAL, 1))
 
 static void warn_fpath(const char *msg, const char *path, enum fpath_err err) {
-	if (err == FPATH_EMPTY) errmsg_warnx(msg_fatal, msg, fpath_errorstring(err));
-	else errmsg_warnx(msg_fatal, msg, fpath_errorstring(err), path);
+	if (err == FPATH_EMPTY) {
+		errmsg_warnx(msg_fatal, msg, ": ", fpath_errorstring(err));
+	}
+	else {
+		errmsg_warnx(msg_fatal, msg, " ", path, ": ", fpath_errorstring(err));
+	}
 }
 
 bool ipcserver_recv(int fd, struct ipc_req *msg, const char *taskworkdir) {

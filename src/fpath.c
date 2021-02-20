@@ -12,11 +12,10 @@
 enum fpath_err fpath_canon(const char *path, char *canon, int *reldepth) {
 	if (*path == '\0') return FPATH_EMPTY;
 	if (*path == '/') return FPATH_ABSOLUTE;
-
 	int depth = 0;
 	const char *start = canon;
-	for (;; ++path) {
-noinc:	switch (*path) {
+	for (;;) {
+		switch (*path) {
 			case '\0': goto r;
 			case '/': goto slash;
 			case '.':
@@ -26,40 +25,52 @@ noinc:	switch (*path) {
 						switch (*++path) {
 							case '/':
 								if (--depth < 0) return FPATH_OUTSIDE;
-								for (--canon; canon != start &&
-										*canon-- != '/';);
-								--canon;
+								canon -= 2; // point right before the slash
+								// go back to the start of the component, to
+								// overwrite with the next component of path
+								while (canon != start && canon[-1] != '/') {
+									--canon;
+								}
 								goto nosl;
 							case '\0':
 								if (--depth < 0) return FPATH_OUTSIDE;
-								for (--canon; canon != start &&
-										*canon-- != '/';);
-								--canon;
+								canon -= 2; // point right before the slash
+								// go back to the slash _before_ the start of
+								// the component
+								while (canon != start && *canon != '/') --canon;
+								// special case: project root/base dir
+								if (canon == start) *canon++ = '.';
 								goto r;
 							default:
 								*canon++ = '.'; *canon++ = '.';
 								*canon++ = *path;
-								continue;
+								goto mid;
 						}
 					case '\0':
 						// special case: project root/base dir
 						if (canon == start) *canon++ = '.';
-						else --canon; // otherwise same as ./
+						else --canon; // otherwise same as ./ (remove the /)
 						goto r;
 					default:
 						*canon++ = '.';
 						*canon++ = *path;
-						continue;
+						goto mid;
 				}
 			default:
 				*canon++ = *path;
-				continue;
+				goto mid;
+		}
+mid:	for (;;) {
+			switch (*++path) {
+				case '/': goto slash;
+				case '\0': goto r;
+				default: *canon++ = *path;
+			}
 		}
 slash:	++depth;
 		*canon++ = '/';
 nosl:	while (*++path == '/');
 		if (!*path) return FPATH_TRAILSLASH; // TODO(basic-core): consider this
-		goto noinc;
 	}
 r:	if (canon == start) return FPATH_EMPTY;
 	*canon = '\0';

@@ -10,7 +10,8 @@ target_os="$4"
 build-dep scripts/conf.build "$build_dir" "$cc" "$cc_type" "$target_os"
 . "$build_dir/config"
 
-ldflags="$ldflags -shared"
+cflags="$cflags -fvisibility=hidden"
+ldflags="$ldflags -shared -fvisibility=hidden"
 
 out=lib/libbuild.so
 libs=

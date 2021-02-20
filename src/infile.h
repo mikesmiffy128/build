@@ -7,8 +7,8 @@
 
 bool infile_ensure(const char *path);
 
-/* returns the infile's newness, or -1u on error */
-uint infile_query(const char *path, uint tgtnewness);
+/* returns 1 if changed, 0 if not, or -1 on error */
+int infile_query(const char *path, uint tgtnewness);
 
 #endif
 
