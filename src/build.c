@@ -32,9 +32,9 @@ USAGE("[-j tasks_at_once] [-C workdir] [-B] [command...]");
 
 // spaghetti variables (build.h)
 int maxpar = 0;
+bool cleanbuild = false;
 
 int main(int argc, char *argv[]) {
-	bool cleanbuild = false;
 	const char *default_command[] = {"./Buildfile", 0};
 	const char **command = default_command;
 	const char *workdir = ".";
@@ -52,8 +52,6 @@ int main(int argc, char *argv[]) {
 		case 'B': cleanbuild = true; break;
 		case 'C': workdir = OPTARG(argc, argv);
 	});
-	
-	if (cleanbuild) {} // TODO(force-rebuild) put that here :)
 
 	if (!maxpar) maxpar = sysconf(_SC_NPROCESSORS_ONLN);
 	if (maxpar > MAX_JOBS_AT_ONCE) {

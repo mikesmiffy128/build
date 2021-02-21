@@ -1,12 +1,18 @@
 #!/bin/sh -e
 
+. scripts/lib.sh
+if [ "$CC" != "" ]; then cc="$CC"; else . scripts/cc-pick.sh; fi
+. scripts/cc-target.sh
+. scripts/cc-info.sh
+full_build_dir="build/$target_os-$target_arch-$cc_type-$cc_ver"
 dir="`dirname "$0"`"
-export LD_LIBRARY_PATH="$dir/build/default/out/lib:$LD_LIBRARY_PATH"
-export PATH="$dir/build/default/out/bin:$PATH"
-if ! [ -x "$dir/build/default/out/bin/build" ]; then
+if ! [ -x "$dir/$full_build_dir/out/bin/build" ]; then
 	echo "build hasn't been built, try ./strap" >&2
+	echo "(or, if you used a non-default compiler, set CC for this script too)" >&2
 	exit 1
 fi
+export LD_LIBRARY_PATH="$dir/$full_build_dir/out/lib:$LD_LIBRARY_PATH"
+export PATH="$dir/$full_build_dir/out/bin:$PATH"
 exec build "$@"
 
 # vi: sw=4 ts=4 noet tw=80 cc=80

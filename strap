@@ -119,7 +119,8 @@ warn "note: now confirming that build works by using it to build itself!"
 	fi
 )
 
-warn "success! installation files are in build/default/out"
+full_build_dir="build/$target_os-$target_arch-$cc_type-$cc_ver"
+warn "success! installation files are in $full_build_dir/out"
 warn "         you can also invoke build without installing using ./runbuild"
 
 # vi: sw=4 ts=4 noet tw=80 cc=80

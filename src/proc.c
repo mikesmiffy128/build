@@ -98,6 +98,13 @@ static void do_start(const char *const *argv, const char *workdir,
 		prog = argv[0];
 	}
 	else {
+		// NOTE: right now this makes build die rather than just creating a
+		// failing task like if you depend on ./notreal; this was an accident
+		// but it actually makes sense since there's no dependency on a system
+		// command so we don't really want to save failures. it's kind of
+		// better to instead fail the whole build since something is probably
+		// wrong with the actual dev environment... so that's what we'll
+		// continue to do.
 		const char *path = getenv("PATH");
 		if (!path) {
 			errmsg_warnx(msg_error, "couldn't find \"", argv[0],

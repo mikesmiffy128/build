@@ -1,6 +1,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -270,23 +271,50 @@ static bool reqdep(struct task *req, struct task_desc dep, bool isgoal,
 	if (!r) goto e;
 	if (r->newness == 0) goto r; // it's newly created!
 	if (r->checked) return r->newness > reqnewness;
+	bool needrerun = cleanbuild; // usually false
 	// if haven't checked up-to-date-ness in this run, do a depth first search
+	// (even if cleanbuild, still start deps eagerly in parallel)
 	for (const struct task_desc *dep = r->deps; dep - r->deps < r->ndeps;
 			++dep) {
 		// currently rerunning all deps preemptively/concurrently
 		// it's up for debate/testing whether this is the universally
-		// best-performing approach
-		if (reqdep(0, *dep, false, r->newness)) goto r;
+		// best-performing approach, but it's the approach for now
+		if (reqdep(0, *dep, false, r->newness)) needrerun = true;
 	}
-	// only check infiles if wouldn't already rerun - avoid the stat() calls!
+	// ideally we wouldn't check these if we know we already need to rerun, but
+	// if we don't update the infiles themselves, they'll change later and
+	// that'll cause yet another rebuild for no reason
 	for (const char *const *pp = r->infiles; pp - r->infiles < r->ninfiles;
 			++pp) {
 		int ret = infile_query(*pp, r->newness);
-		if (ret == -1) {
+		if (ret == -1 && !needrerun) {
 			errmsg_warn(msg_warn, "couldn't query infile ", *pp);
 			errmsg_warnx(msg_note, "resorting to a maybe-redundant task rerun");
 		}
-		if (ret) goto r;
+		if (ret) needrerun = true;
+	}
+	if (needrerun) {
+r:;		struct task **tp = table_put_activetask(&activetasks, dep);
+		if (!tp) goto e;
+		*tp = opentask(dep, r->id);
+		if (!*tp) goto e;
+		// create the implicit infile, but only for in-tree executables
+		if (path_isfull(dep.argv[0])) {
+			char *canon = malloc(strlen(dep.argv[0]) + 1);
+			if (!canon) goto e;
+			if (fpath_canon(dep.argv[0], canon, 0) == FPATH_OK) {
+				const char *infile = db_intern_free(canon);
+				if (!infile || !infile_ensure(infile)) goto e;
+				const char **pp = table_put_infile(&(*tp)->infiles, infile);
+				if (!pp) goto e;
+				*pp = infile;
+			}
+		}
+		if (isgoal) goal = *tp; // XXX also stupid
+		(*tp)->outresult = r;
+		proc_start(&(*tp)->base, (*tp)->desc.argv, (*tp)->desc.workdir);
+		++nstarted;
+		return true;
 	}
 	// we only get here once per up-to-date run - stick the error output here!
 	char buf[12];
@@ -307,28 +335,6 @@ static bool reqdep(struct task *req, struct task_desc dep, bool isgoal,
 	if (isgoal) exit_clean(r->status); // XXX this is stupid
 	r->checked = true;
 	return r->newness > reqnewness;
-
-r:;	struct task **tp = table_put_activetask(&activetasks, dep);
-	if (!tp) goto e;
-	*tp = opentask(dep, r->id);
-	if (!*tp) goto e;
-	// create the implicit infile, but only for programs inside the source tree
-	if (path_isfull(dep.argv[0])) {
-		char *canon = malloc(strlen(dep.argv[0]) + 1);
-		if (!canon) goto e;
-		if (fpath_canon(dep.argv[0], canon, 0) == FPATH_OK) {
-			const char *infile = db_intern_free(canon);
-			if (!infile || !infile_ensure(infile)) goto e;
-			const char **pp = table_put_infile(&(*tp)->infiles, infile);
-			if (!pp) goto e;
-			*pp = infile;
-		}
-	}
-	if (isgoal) goal = *tp; // XXX also stupid
-	(*tp)->outresult = r;
-	proc_start(&(*tp)->base, (*tp)->desc.argv, (*tp)->desc.workdir);
-	++nstarted;
-	return true;
 
 	// XXX one day, make this more granular instead of just dying on the spot
 e:	errmsg_warn("couldn't handle task dependency");

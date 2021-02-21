@@ -34,8 +34,4 @@ build-infile include/build.h
 mkdir -p "$full_build_dir/out/include"
 cp include/build.h "$full_build_dir/out/include"
 
-if [ $is_default = 1 ]; then
-	ln -sf "$target_os-$target_arch-$cc_type-$cc_ver" "$build_dir/default"
-fi
-
 # vi: sw=4 ts=4 noet tw=80 cc=80

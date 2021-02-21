@@ -50,8 +50,10 @@ Tools and techniques for installing to your home directory include:
 
 You can also just use the "runbuild" script in this directory to run your
 freshly-compiled copy without having to install it anywhere, but this may be
-unreliable for various reasons, so it is recommended that you install and use a
-known working, stable version for general-purpose usage.
+unreliable for various reasons (and also might be slow because it invokes the
+compiler again to figure out which output directory has your build in it), so it
+is recommended that you install and use a known working, stable version for
+general-purpose usage.
 
 If you're using something really stupid like NixOS or Gobo, you're on your own.
 

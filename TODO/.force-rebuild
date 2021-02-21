@@ -4,5 +4,5 @@ Allow some way to treat everything as out of date and unconditionally do a full
 rebuild. This shouldn't be something people _need_ to do, but it's good for
 stuff like benchmarking or whatever.
 
-There's a bunch of ways this *could* be done, but we can think about those
-later.
+This has now been implemented in about the simplest way possible, and seems to
+work completely fine, so that's that.
