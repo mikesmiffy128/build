@@ -12,8 +12,8 @@
 plat_supported_cc=
 case "$target_os" in
 	linux)
-		plat_supported_cc="clang-11.0.0"
-		plat_friendly_cc="Clang 11.0.0" ;;
+		plat_supported_cc="clang-11.0.1"
+		plat_friendly_cc="Clang 11.0.1" ;;
 	freebsd)
 		plat_supported_cc="clang-10.0.1-freebsd"
 		plat_friendly_cc="FreeBSD Clang 10.0.1" ;;
