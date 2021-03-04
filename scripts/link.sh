@@ -6,7 +6,7 @@ for s in $src; do
 	if [ "$sha1" = "" ]; then exit 1; fi # sigh, no pipefail
 	o="$build_dir/`echo "${s%%.c}" | sed -e s@src/@@g -e s@/@:@g`:$sha1.o"
 	set -- "$@" "$o"
-	build-dep -n scripts/cc.build "$build_dir" "$cc" "$cflags" "$s" "$o"
+	build-dep -n scripts/cc.build "$build_dir" "$cc" "-c $cflags" "$s" "$o"
 done
 # wait for required libraries (ie libbuild)
 for d in $libs; do

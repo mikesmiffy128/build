@@ -1,0 +1,26 @@
+#!/bin/sh -e
+build-infile scripts/lib.sh
+. scripts/lib.sh
+
+build_dir="$1"
+cc="$2" # this will be hostcc
+cc_type="$3"
+testcase="$4"
+
+cflags="-O1 -g -Icbits/include"
+target_os=unknown # this doesn't matter; it just has to be set for cc-conf
+use cc-conf
+if [ "$can_sanitize" = 1 ]; then
+	cflags="$cflags -fsanitize=address,undefined"
+	# test cases don't care about freeing memory; ignore leaks
+	ASAN_OPTIONS="detect_leaks=0"
+fi
+
+# skip tests if test.h doesn't work
+build-dep scripts/check-constructor.build "$cc" "$cc_type" || exit 0
+build-dep scripts/cc.build "$build_dir" "$cc" "$cflags" \
+		"test/$testcase.test.c" "$build_dir/$testcase.test"
+
+"$build_dir/$testcase.test"
+
+# vi: sw=4 ts=4 noet tw=80 cc=80

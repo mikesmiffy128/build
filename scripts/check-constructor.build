@@ -1,0 +1,26 @@
+#!/bin/sh -e
+build-infile scripts/lib.sh
+. scripts/lib.sh
+
+cc="$1"
+cc_type="$2"
+
+# GCC and Clang are definitely fine, but if we have some weird unknown compiler
+# it needs to support __attribute__((constructor)), otherwise tests won't work
+ret=0
+if [ $cc_type = unknown ]; then
+	ret=1
+	if $cc -o .ctor-test.tmp scripts/ctor-test.c 2>/dev/null &&
+			./.ctor-test.tmp; then
+		ret=0 # ugh
+	fi
+	rm -f .ctor-test.tmp
+fi
+
+if [ "$ret" = 1 ]; then
+	warn "warning: compiler does not properly support constructors"
+	warn "* automated tests will not be run! don't break anything! *"
+fi
+exit $ret
+
+# vi: sw=4 ts=4 noet tw=80 cc=80

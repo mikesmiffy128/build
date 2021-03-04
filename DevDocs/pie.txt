@@ -4,6 +4,7 @@ main goal is turning PIE *on* but turning it off is documented if you need it)
 
 * tcc never creates PIEs and errors on -pie, so don't try to do anything.
   [tcc support was since dropped but this might be useful info elsewhere]
+  Assume unknown compilers don't support -pie either.
 
 * GCC and Clang on Linux generally support -fpic and -pie to enable PIC/PIE,
   and -no-pie to disable it.
