@@ -1,0 +1,19 @@
+#!/bin/sh
+
+# most Linux distros have shaXXXsum commands
+if command -v sha1sum >/dev/null 2>/dev/null; then
+	sha1sum | awk '{print $1}'
+# BSDs have shaXXX commands (without the sum), but NetBSD only has sha1 (which
+# is why we're *using* sha1)
+elif command -v sha1 >/dev/null 2>/dev/null; then
+	exec sha1
+# when in doubt, there's also probably an "openssl" command worth trying,
+# although it might be a bit slower
+elif command -v openssl >/dev/null 2>/dev/null; then
+	openssl sha1 | awk '{print $2}'
+else
+	echo "sha1: your system lacks an sha1 command, somehow" >&2
+	exit 1
+fi
+
+# vi: sw=4 ts=4 noet tw=80 cc=80

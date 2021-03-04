@@ -13,6 +13,7 @@ if ! [ -x "$dir/$full_build_dir/out/bin/build" ]; then
 fi
 export LD_LIBRARY_PATH="$dir/$full_build_dir/out/lib:$LD_LIBRARY_PATH"
 export PATH="$dir/$full_build_dir/out/bin:$PATH"
+export LUA_CPATH="$dir/$full_build_dir/out/lib/lua/5.4/?.so"
 exec build "$@"
 
 # vi: sw=4 ts=4 noet tw=80 cc=80

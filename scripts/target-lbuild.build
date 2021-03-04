@@ -1,0 +1,49 @@
+#!/bin/sh -e
+build-infile scripts/lib.sh
+. scripts/lib.sh
+
+build_dir="$1"
+cc="$2"
+cc_type="$3"
+target_os="$4"
+luaver="$5"
+
+build-dep scripts/conf.build "$build_dir" "$cc" "$cc_type" "$target_os"
+. "$build_dir/config"
+
+cflags="$cflags -fvisibility=hidden -DLUA_REVISION=${luaver##5.}"
+ldflags="$ldflags -shared -fvisibility=hidden -lbuild"
+
+out=lib/lua/$luaver/lbuild.so
+libs=libbuild
+src="src/lbuild.c"
+
+tryverheader() {
+	echo "#include <lua$luaver/lua.h>" | $cc -E -x c -o /dev/null - 2>/dev/null
+}
+trymainheader() {
+	echo LUA_VERSION_MINOR | $cc -E -x c -include "lua.h" - 2>/dev/null | tail -1
+}
+
+if tryverheader $luaver; then
+	include="lua$luaver/lua.h"
+	auxinclude="lua$luaver/lauxlib.h"
+else
+	hver="`trymainheader`"
+	# check that we have the right header
+	if [ "$hver" = \"${luaver##5.}\" ]; then
+		include=lua.h
+		auxinclude=lauxlib.h
+	fi
+fi
+
+if [ "$include" != "" ]; then
+	cflags="$cflags -DLUA_HEADER=<$include> -DLUA_AUX_HEADER=<$auxinclude>"
+	use link
+else
+	warn "note: Lua $luaver header couldn't be found, module won't be built"
+	warn "* build will still work, but Lua $luaver build scripts will not."
+fi
+
+
+# vi: sw=4 ts=4 noet tw=80 cc=80

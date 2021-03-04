@@ -1,6 +1,10 @@
 set -- # use the shell's single array for object file names
 for s in $src; do
-	o="$build_dir/`echo "${s%%.c}" | sed -e s@src/@@g -e s@/@:@g`.o"
+	# hash the flags, so multiple configurations of eg lbuild produce different
+	# objects (truncate said hash a bit to avoid unwieldiness)
+	sha1="`printf %s "$cflags" | scripts/sha1 | cut -c -8`"
+	if [ "$sha1" = "" ]; then exit 1; fi # sigh, no pipefail
+	o="$build_dir/`echo "${s%%.c}" | sed -e s@src/@@g -e s@/@:@g`:$sha1.o"
 	set -- "$@" "$o"
 	build-dep -n scripts/cc.build "$build_dir" "$cc" "$cflags" "$s" "$o"
 done

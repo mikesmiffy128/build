@@ -4,7 +4,7 @@
 #ifdef __GNUC__
 #define unreachable __builtin_unreachable()
 #else
-#define unreachable
+#define unreachable do; while (0)
 #endif
 
 #endif

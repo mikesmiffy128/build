@@ -8,7 +8,7 @@ put_entry() {
 	{
 		"directory": ".",
 		"file": "$1",
-		"command": "clang -c -Wall -pedantic -Wno-parentheses -fparse-all-comments -Icbits/include `cpoly-config` \"$1\""
+		"command": "clang -c -Wall -pedantic -Wno-parentheses -fparse-all-comments -Icbits/include `cpoly-config`$3 \"$1\""
 	}$2
 EOF
 }
@@ -20,7 +20,12 @@ put_entries() {
 		nents=$(($nents-1))
 		_sep=","
 		if [ $nents = 0 ]; then _sep=""; fi
-		put_entry "$_s" "$_sep"
+		extra=
+		# just use latest lua in order to have _something_
+		if [ "$_s" = "src/lbuild.c" ]; then
+			extra=" -DLUA_HEADER=<lua.h> -DLUA_AUX_HEADER=<lauxlib.h>";
+		fi
+		put_entry "$_s" "$_sep" "$extra"
 	done
 }
 echo [

@@ -28,6 +28,14 @@ build-dep -n "scripts/target-build.build" "$full_build_dir" "$cc" "$cc_type" "$t
 build-dep -n "scripts/target-libbuild.build" "$full_build_dir" "$cc" "$cc_type" "$target_os"
 build-dep -n "scripts/target-build-dep.build" "$full_build_dir" "$cc" "$cc_type" "$target_os"
 build-dep -n "scripts/target-build-infile.build" "$full_build_dir" "$cc" "$cc_type" "$target_os"
+
+# target all the widely used lua versions - people literally use all of these
+# all the time. 5.1 should also cover LuaJit
+build-dep -n "scripts/target-lbuild.build" "$full_build_dir" "$cc" "$cc_type" "$target_os" 5.4
+build-dep -n "scripts/target-lbuild.build" "$full_build_dir" "$cc" "$cc_type" "$target_os" 5.3
+build-dep -n "scripts/target-lbuild.build" "$full_build_dir" "$cc" "$cc_type" "$target_os" 5.2
+build-dep -n "scripts/target-lbuild.build" "$full_build_dir" "$cc" "$cc_type" "$target_os" 5.1
+
 build-dep -w
 
 build-infile include/build.h
