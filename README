@@ -49,7 +49,7 @@ MANPATH appropriately in a shell profile or .pam_environment file or something).
 Tools and techniques for installing to your home directory include:
 
   Crude personal package managers:
-    https://gitlab.com/mikesmiffy128/lpkg
+    https://gitlab.com/mikesmiffy128/lpkg *
     https://nullprogram.com/blog/2018/03/27/
 
   Existing package managers like pkgsrc or Homebrew, in a custom prefix:
@@ -60,6 +60,8 @@ Tools and techniques for installing to your home directory include:
 
   FUSE bindfs‽
 
+* lpkg now also supports installing into (and uninstalling from) /usr/local.
+
 You can also just use the "runbuild" script in this directory to run your
 freshly-compiled copy without having to install it anywhere, but this may be
 unreliable when building build itself for various reasons (and also might be
@@ -69,11 +71,11 @@ install and use a known working, stable version for general usage, if you intend
 to mess with the code and potentially break things.
 
 NOTE: Lua bindings will be a pain to make work anywhere other than the
-system-wide directories since LUA_CPATH isn't additive and also varies
-depending on Lua version. It is recommended to figure out a way to install
-system-wide if you want to use Lua. ./runbuild will just assume Lua 5.4, which
-ought to be enough to be able to try out Lua build scripts, but is no good if
-you're fussy about using a specific version.
+system-wide directories since LUA_CPATH isn't additive and also varies depending
+on Lua version. It is recommended to install system-wide if you want to use Lua.
+./runbuild will just assume Lua 5.4, which ought to be enough to be able to try
+out Lua build scripts, but is no good if you're fussy about using a specific
+version.
 
 If you're using something really stupid like NixOS or Gobo, you're on your own.
 
@@ -94,7 +96,7 @@ To make matters more awkward, plenty of Linux distributions compress man pages
 with gzip, as does FreeBSD, but OpenBSD and NetBSD do not. Chances are a few
 Linux distributions probably don't either.
 
-Coming up with a way to automate man page installation staging for every
+Coming up with a way to automate man page installation/staging for every
 conceivable environment is a sufficiently annoying task that I don't want to do
 it, so it is up to you (and/or your OS packager one day) to figure that one out.
 
