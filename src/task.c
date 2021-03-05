@@ -47,6 +47,8 @@ struct vec_str VEC(const char *);
 struct task {
 	struct proc_info base; // must be first member; pointer is casted
 						   // (if moved, would need something like container_of)
+	uint cyclecheck;
+	uint cycleidx;
 	uchar maxdepstatus; // highest exit code from exited deps
 	// char padding[3];
 	struct task_desc desc;
@@ -72,6 +74,7 @@ static struct table_activetask activetasks;
 struct task *goal; // HACK :(
 static int goalstatus;
 static int nstarted = 0;
+static int cyclecheckid = 0;
 
 // XXX this function only does part of the work - should just get inlined
 static struct task *opentask(struct task_desc d, uint id) {
@@ -81,6 +84,7 @@ static struct task *opentask(struct task_desc d, uint id) {
 		t->haderr = false;
 		t->nblockers = 0;
 		t->blockees = (struct vec_taskp){0};
+		t->cyclecheck = 0;
 		if (!table_init_taskdesc(&t->deps)) goto e;
 		if (!table_init_infile(&t->infiles)) goto e1;
 		char buf[12];
@@ -265,10 +269,7 @@ static bool reqdep(struct task *req, struct task_desc dep, bool isgoal,
 	// than trying to put and then back out again later (also literally none of
 	// this matters since forking a process probably takes much longer than a
 	// typical hash insert, so literally who cares)
-	if (table_get_activetask(&activetasks, dep)) {
-		// FIXME: put the cycle check in here!
-		return true;
-	}
+	if (table_get_activetask(&activetasks, dep)) return true;
 	struct db_taskresult *r = db_gettaskresult(dep);
 	if (!r) goto e;
 	if (r->newness == 0) goto r; // it's newly created!
@@ -343,12 +344,66 @@ e:	errmsg_warn("couldn't handle task dependency");
 	exit_failure(100);
 }
 
+// cycle check algorithm:
+// * only care about running tasks that are blocked, since non-blocked things
+//   obviously aren't participating in any kind of dependency relationship, and
+//   things in the db obviously got checked already
+// * DFS from req, trying to find dep via blockees; if dep is eventually blocked
+//   because of req then trying to block req on dep is a cycle, which is bad!
+// * global cyclecheckid value is bumped every search (before calls to this; see
+//   below); if a task is hit which equals that value then it's been seen
+//   already in this search so don't traverse it again
+// * if a cycle is found, the path through blockees is printed essentially by
+//   means of stack unwinding (see below and you'll see what I mean)
+//
+// cool thing about this: it only happens once per wait, and generally only
+// traverses a small subset of the graph, unlike most build system cycle checks
+// which necessarily validate the entire thing every time!
+
+static bool cyclecheck(struct task *req, struct task *dep) {
+	if (req->cyclecheck == cyclecheckid) return false;
+	req->cyclecheck = cyclecheckid;
+	for (uint i = 0; i < req->blockees.sz; ++i) {
+		req->cycleidx = i;
+		if (req->blockees.data[i] == dep) {
+			errmsg_warnx(msg_fatal, "blocked tasks would deadlock "
+					"(dependency cycle)");
+			obuf_put0t(buf_err, "  the full cycle looks something like this:\n");
+			obuf_put0t(buf_err, "  ┌─► `");
+			char *s = desctostr(&req->blockees.data[i]->desc);
+			if (s) obuf_put0t(buf_err, s);
+			obuf_put0t(buf_err, "`\n");
+			goto yep;
+		}
+		if (cyclecheck(req->blockees.data[i], dep)) {
+yep:		obuf_put0t(buf_err, "  │   `");
+			char *s = desctostr(&req->desc);
+			if (s) obuf_put0t(buf_err, s);
+			obuf_put0t(buf_err, "`\n");
+			free(s);
+			return true;
+		}
+	}
+	return false;
+}
+
+static void docyclecheck(struct task *req, struct task *dep) {
+	if (cyclecheck(req, dep)) {
+		// gotta do the tail end of the output
+		obuf_put0t(buf_err, "  └────┘\n");
+		obuf_flush(buf_err);
+		exit_failure(100);
+	}
+}
+
 static void reqwait(struct task *t) {
 	t->maxdepstatus = 0;
+	++cyclecheckid;
 	for (struct task_desc *d = t->newdeps.data;
 			d - t->newdeps.data < t->newdeps.sz; ++d) {
 		struct task **active = table_get_activetask(&activetasks, *d);
 		if (active) {
+			docyclecheck(t, *active);
 			if (!vec_push(&(*active)->blockees, t)) goto e;
 			++t->nblockers;
 		}
