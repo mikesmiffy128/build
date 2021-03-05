@@ -75,14 +75,14 @@ static void cb_ipc(int fd, short revents, void *ctxt) {
 
 static char rootdirvar[sizeof(ENV_ROOT_DIR "=") - 1 + PATH_MAX] =
 		ENV_ROOT_DIR "=";
-static void setrootdirvar(const char *dir) {
+static bool setrootdirvar(const char *dir) {
 	char *p = rootdirvar + sizeof(ENV_ROOT_DIR "=") - 1;
 	if (dir[0] == '.' && dir[1] == '\0') {
 		p[0] = '.';
 		p[1] = '\0';
-		return;
+		return true;
 	}
-	fpath_leavesubdir(dir, p, PATH_MAX); // FIXME check error!!
+	return fpath_leavesubdir(dir, p, PATH_MAX);
 }
 
 static char sockfdvar[sizeof(ENV_SOCKFD "=") - 1 + 11] = ENV_SOCKFD "=";
@@ -142,7 +142,10 @@ static void do_start(const char *const *argv, const char *workdir,
 		goto e3;
 	}
 	proc->ipcsock = ipcsock[0];
-	setrootdirvar(workdir);
+	if (!setrootdirvar(workdir)) { // ENAMETOOLONG: unlikely, but could happen!
+		errmsg_warn(msg_error, "couldn't calculate relative file path");
+		goto e4;
+	}
 	setsockfdvar(ipcsock[1]);
 	proc->_pid = vfork();
 	if (proc->_pid == -1) {

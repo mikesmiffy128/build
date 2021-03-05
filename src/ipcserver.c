@@ -43,7 +43,7 @@ bool ipcserver_recv(int fd, struct ipc_req *msg, const char *taskworkdir) {
 			if (n == -1 || INVAL(n != sizeof(argc))) return false;
 			// FIXME this currently leaks the alloc for each and every request;
 			// do we want to intern these like strings or just have logic to
-			// free if already in the build db???
+			// free if already in the build db??? how would that logic work???
 			const char **argv = malloc(sizeof(*argv) * (argc + 1));
 			if (!argv) return false;
 			for (const char **pp = argv; pp - argv < argc; ++pp) {

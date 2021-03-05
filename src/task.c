@@ -106,10 +106,12 @@ static void closetask(struct task *t) {
 	freelist_free_task(t);
 }
 
+// this function *should* be safe, although it's only actually used for printing
+// user-friendly messages right now, not for actually doing anything shell-based
 static inline bool shellesc(struct str *s, const char *p) {
-	// if there's shell characters, wrap in single quotes, escaping single
-	// quotes specially
-	if (strpbrk(p, " \t\n\"'`<>&#~*$|(){};?!\\")) { // FIXME incomplete?
+	// if there's shell-looking characters, wrap in single quotes, escaping
+	// single quotes specially, otherwise try to keep it simple
+	if (strpbrk(p, " \t\n\"'`<>&#~*$|(){};?!\\")) {
 		if (!str_appendc(s, '\'')) return false;
 		for (; *p; ++p) {
 			if (*p == '\'') {

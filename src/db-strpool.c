@@ -65,11 +65,16 @@ void strpool_init(void) {
 		if (nread == 0) break; // EOF here is fine! we're done!
 		if (nread != sizeof(hl)) goto eof;
 		uint len = hl >> 32;
+		if (len > -1u / 2 - 1) {
+			// slight awkwardness: getbytes length is an int; strings should
+			// never be even close to this long but to avoid any overflow
+			// weirdness, check just to be safe(ish)
+			errmsg_diex(100, msg_fatal,
+					"string pool has an unreasonable string");
+		}
 		char *s = malloc(len + 1);
 		if (!s) goto e;
 		s[len] = '\0';
-		// XXX/FIXME: getbytes len can't be this big, potential overflow
-		// (although in practice no string should be this big)
 		nread = ibuf_getbytes(b, s, len);
 		if (nread == -1) goto e;
 		if (nread != len) goto eof;
