@@ -1,0 +1,11 @@
+ldflags="$ldflags $pie -lbuild"
+
+out=bin/build-dep
+libs=libbuild
+src="\
+	src/build-dep.c
+	cbits/src/errmsg.c
+	cbits/src/errorstring.c
+	cbits/src/iobuf.c"
+
+# vi: sw=4 ts=4 noet tw=80 cc=80 ft=sh

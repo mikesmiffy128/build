@@ -30,17 +30,15 @@ use hostcc-info
 full_build_dir="$build_dir/$target_os-$target_arch-$cc_type-$cc_ver"
 host_build_dir="$build_dir/host" # good enough, I think
 
-build-dep -n "scripts/target-build.build" "$full_build_dir" "$cc" "$cc_type" "$target_os"
-build-dep -n "scripts/target-libbuild.build" "$full_build_dir" "$cc" "$cc_type" "$target_os"
-build-dep -n "scripts/target-build-dep.build" "$full_build_dir" "$cc" "$cc_type" "$target_os"
-build-dep -n "scripts/target-build-infile.build" "$full_build_dir" "$cc" "$cc_type" "$target_os"
-
+# build the targets!
+for t in build libbuild build-dep build-infile; do
+	build-dep -n "scripts/target.build" "$full_build_dir" "$cc" "$cc_type" "$target_os" $t
+done
 # target all the widely used lua versions - people literally use all of these
 # all the time. 5.1 should also cover LuaJit
-build-dep -n "scripts/target-lbuild.build" "$full_build_dir" "$cc" "$cc_type" "$target_os" 5.4
-build-dep -n "scripts/target-lbuild.build" "$full_build_dir" "$cc" "$cc_type" "$target_os" 5.3
-build-dep -n "scripts/target-lbuild.build" "$full_build_dir" "$cc" "$cc_type" "$target_os" 5.2
-build-dep -n "scripts/target-lbuild.build" "$full_build_dir" "$cc" "$cc_type" "$target_os" 5.1
+for v in 5.1 5.2 5.3 5.4; do
+	build-dep -n "scripts/target.build" "$full_build_dir" "$cc" "$cc_type" "$target_os" lbuild $v
+done
 
 # tests!
 build-dep -n "scripts/test.build" "$host_build_dir" "$hostcc" "$hostcc_type" fpath
