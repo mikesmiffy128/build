@@ -19,7 +19,7 @@ case "$target_os" in
 		warn "* let me know how you get on! *" ;;
 esac
 
-cflags="-O0 -w"
+cflags="-O0 -w -fpic"
 ldflags="-O0"
 test_cflags=
 
@@ -40,7 +40,7 @@ warn "      this will take a moment because modern compilers are ridiculously sl
 
 num_items=4 # ← remember to change this manually
 is_tty && printf "[0/$num_items] build " || :
-$cc $cflags $cpoly_cflags $ldflags $pie $cpoly_ldflags \
+$cc $cflags $cpoly_cflags $ldflags $cpoly_ldflags \
 -Icbits/include \
 src/build.c \
 src/db.c \

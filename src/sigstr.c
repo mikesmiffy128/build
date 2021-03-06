@@ -65,7 +65,9 @@ const char *sigstr(int sig) {
 		case SIGMSG: return "MSG";
 #endif
 		case SIGPIPE: return "PIPE";
+#ifdef SIGPOLL
 		case SIGPOLL: return "POLL";
+#endif
 #ifdef SIGPRE
 		case SIGPRE: return "PRE";
 #endif
