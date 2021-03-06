@@ -8,13 +8,6 @@ cc_type="$3"
 testcase="$4"
 
 cflags="-O1 -g -Icbits/include"
-target_os=unknown # this doesn't matter; it just has to be set for cc-conf
-use cc-conf
-if [ "$can_sanitize" = 1 ]; then
-	cflags="$cflags -fsanitize=address,undefined"
-	# test cases don't care about freeing memory; ignore leaks
-	ASAN_OPTIONS="detect_leaks=0"
-fi
 
 # skip tests if test.h doesn't work
 build-dep scripts/check-constructor.build "$cc" "$cc_type" || exit 0

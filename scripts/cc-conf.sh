@@ -1,12 +1,10 @@
 extra_ldflags=
 extra_cflags=
-can_sanitize=0
 
 case "$cc_type" in
 	clang)
 		extra_cflags="-flto -fpic"
 		extra_ldflags="-flto -fpic"
-		can_sanitize=1
 		# for now, only trying LLD with Clang as GCC seems to have trouble using
 		# it (undefined symbol main)
 		# also, not using it on macos since it doesn't work there
@@ -19,9 +17,7 @@ case "$cc_type" in
 		# lto1: internal compiler error: in read_cgraph_and_symbols, at lto/lto-common.c:2702
 		# lto1: internal compiler error: Bus error
 		extra_cflags="-fpic"
-		extra_ldflags="-fpic"
-		can_sanitize=1 ;;
-	*) ;;
+		extra_ldflags="-fpic" ;;
 esac
 
 # see DevDocs/pie.txt for this part
