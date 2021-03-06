@@ -77,6 +77,13 @@ on Lua version. It is recommended to install system-wide if you want to use Lua.
 out Lua build scripts, but is no good if you're fussy about using a specific
 version.
 
+Do also keep in mind that many Linux distributions, such as the one I'm using,
+are made by incompetent people so they don't actually look for libraries under
+/usr/local/lib even though it's a standard place to put them. If you get errors
+about missing shared libraries you'll need to add an entry in /etc/ld.so.conf.d
+and probably also add /usr/local/lib to your LIBRARY_PATH environment variable
+to tell the linker how to do its job.
+
 If you're using something really stupid like NixOS or Gobo, you're on your own.
 
 == MAN PAGES ==
