@@ -51,25 +51,32 @@ static void doerrio(int fd, struct proc_info *p) {
 	while ((nread = recv(fd, buf, sizeof(buf), MSG_DONTWAIT)) > 0) {
 		ev_cb(PROC_EV_STDERR, (union proc_ev_param){.buf = buf, .sz = nread}, p);
 	}
+#ifdef __NetBSD__
+	// NetBSD's poll() is a stupid idiot and gives POLLIN instead of POLLHUP for
+	// sockets. I really like NetBSD as a project and everything but come on.
+	if (nread == 0) evloop_onfd_remove(fd);
+#endif
 }
 
 static void cb_err(int fd, short revents, void *ctxt) {
+#ifndef __NetBSD__
 	if (revents & POLLHUP) {
 		evloop_onfd_remove(fd);
 		// note: don't close() yet; that gets taken care of when the process
 		// exits and we don't wanna double-close and clobber something else
 		return;
 	} // else assume POLLIN
+#endif
 	doerrio(fd, (struct proc_info *)ctxt);
 }
 
 static void cb_ipc(int fd, short revents, void *ctxt) {
+#ifndef __NetBSD__
 	if (revents & POLLHUP) {
 		evloop_onfd_remove(fd);
-		// note: don't close() yet; that gets taken care of when the process
-		// exits and we don't wanna double-close and clobber something else
 		return;
 	} // else assume POLLIN
+#endif
 	ev_cb(PROC_EV_IPC, (union proc_ev_param){0}, (struct proc_info *)ctxt);
 }
 
