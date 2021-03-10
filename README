@@ -83,7 +83,7 @@ are made by incompetent people so they don't actually look for libraries under
 doesn't either even though packages are actually supposed to go there! If you
 get errors about missing shared libraries you'll need to add an entry in
 /etc/ld.so.conf.d and probably also add /usr/local/lib to your LIBRARY_PATH
-environment variable to tell the linker how to do its job. I assume packing
+environment variable to tell the linker how to do its job. I assume packaging
 people must just set RPATHs or something, but that's not really something that
 can be done for upstream software (ie this) since build doesn't care where it is
 installed (nor where anything else is installed).
