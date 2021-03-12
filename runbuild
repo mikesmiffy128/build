@@ -1,19 +1,31 @@
 #!/bin/sh -e
 
+go() {
+	export LD_LIBRARY_PATH="$full_build_dir/out/lib:$LD_LIBRARY_PATH"
+	export PATH="$full_build_dir/out/bin:$PATH"
+	export LUA_CPATH="$full_build_dir/out/lib/lua/5.4/?.so"
+	exec build "$@"
+}
+
+stop() {
+	echo "build hasn't been built, try ./strap" >&2
+	echo "(or, if you used a non-default compiler, set CC for this script too)" >&2
+	exit 1
+}
+
 dir="`dirname "$0"`"
+if [ -f "$dir/build/.runbuild-cache" ]; then
+	full_build_dir="`cat "$dir/build/.runbuild-cache"`"
+	go "$@"
+fi
+if ! [ -d build ]; then stop; fi
 . "$dir/scripts/lib.sh"
 if [ "$CC" != "" ]; then cc="$CC"; else . "$dir/scripts/cc-pick.sh"; fi
 . "$dir/scripts/cc-target.sh"
 . "$dir/scripts/cc-info.sh"
 full_build_dir="$dir/build/$target_os-$target_arch-$cc_type-$cc_ver"
-if ! [ -x "$full_build_dir/out/bin/build" ]; then
-	echo "build hasn't been built, try ./strap" >&2
-	echo "(or, if you used a non-default compiler, set CC for this script too)" >&2
-	exit 1
-fi
-export LD_LIBRARY_PATH="$full_build_dir/out/lib:$LD_LIBRARY_PATH"
-export PATH="$full_build_dir/out/bin:$PATH"
-export LUA_CPATH="$full_build_dir/out/lib/lua/5.4/?.so"
-exec build "$@"
+if ! [ -x "$full_build_dir/out/bin/build" ]; then stop; fi
+printf "%s" "$full_build_dir" > "$dir/build/.runbuild-cache"
+go "$@"
 
 # vi: sw=4 ts=4 noet tw=80 cc=80

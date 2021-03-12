@@ -75,11 +75,8 @@ Tools and techniques for installing to your home directory include:
 
 You can also just use the "runbuild" script in this directory to run your
 freshly-compiled copy without having to install it anywhere, but this may be
-unreliable when building build itself for various reasons (and also might be
-slow because it invokes the compiler again to get target information to figure
-out which output directory has your build in it). It is recommended that you
-install and use a known working, stable version for general usage, if you intend
-to mess with the code and potentially break things.
+unreliable when building build itself for various reasons. It is recommended
+that you install and use a known working, stable version for general usage.
 
 NOTE: Lua bindings will be a pain to make work anywhere other than the
 system-wide directories since LUA_CPATH isn't additive and also varies depending
