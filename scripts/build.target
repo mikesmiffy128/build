@@ -24,4 +24,12 @@ src="\
 	cbits/src/iobuf.c
 	cbits/src/path.c"
 
+if [ "$cpoly_use_bundled" ]; then src="$src
+	libcpoly/src/arc4random/arc4random.c
+	libcpoly/src/progname.c
+	libcpoly/src/reallocarray.c
+	libcpoly/src/strchrnul.c
+	libcpoly/src/strtonum.c"
+fi
+
 # vi: sw=4 ts=4 noet tw=80 cc=80 ft=sh

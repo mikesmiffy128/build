@@ -1,4 +1,15 @@
+Except where otherwise noted, the following terms apply:
+================================================================================
 Copyright 2020 Michael Smith <mikesmiffy128@gmail.com>
 All rights reserved.
 
 At some point, a permissive copyright licence will be added, but not yet.
+================================================================================
+Parts of this software distribution are released into the public domain. Check
+the copyright notices in individual files for full details.
+
+Some files under libcpoly/ are written and licensed by third parties. See the
+copyright notices in those files for details of authorship and relevant
+redistribution rights. Note that libcpoly is normally a separate, standalone
+component but may be incorporated into binary builds. Please take care when
+redistributing binaries to respect all the relevant copyright licences.

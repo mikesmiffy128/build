@@ -26,10 +26,21 @@ browser-polyfill-except-not-for-browsers:
 
   https://gitlab.com/mikesmiffy128/libcpoly
 
-The build scripts will use it if it's available in your exec, include and
-library paths. Otherwise, they will complain until you install it properly, as
-there is no single Unix OS that provides all the required features without
-various annoying forms of hoop-jumping and workarounds.
+This provides a very convenient way to write portable software without worrying
+about as many of the various quirks and omissions unfortunately found in all
+Unix operating systems. It is recommended that you grab the up-to-date
+repository from the link above and install the shared library and configuration
+tool on your system before building build.
+
+However, for the sake of convenience, build also bundles its own copy of
+libcpoly. If it's missing from the system, the bundled wrapper headers will
+probably still work, and any required functions will simply be statically linked
+on platforms that lack them.
+
+NOTE: If the bundled library is used, the build system will print a warning
+indicating that this is not the recommended configuration! Anyone producing
+distribution packages is advised to *please* package up the library as well,
+since it's intended to be used by various different software.
 
 Bindings to scripting languages will be built assuming the appropriate libraries
 and headers exist to build against. If they don't, the build system will warn

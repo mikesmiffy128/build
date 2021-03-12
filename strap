@@ -22,27 +22,28 @@ case "$target_os" in
 		warn "* let me know how you get on! *" ;;
 esac
 
+warn "note: compiling unoptimised bootstrap version"
+warn "      this will take a moment because modern compilers are ridiculously slow"
+
 cflags="-O0 -w -fpic"
 ldflags="-O0"
 test_cflags=
 
-if is_cmd cpoly-config; then
-	cpoly_cflags="`cpoly-config`"
-	cpoly_ldflags=-lcpoly
-else
-	warn "error: couldn't find libcpoly installation (libc compatibility layer)"
-	warn "unless you're using an OS that doesn't exist yet, install this:"
-	warn "  https://gitlab.com/mikesmiffy128/libcpoly"
-	exit 1
-fi
+. scripts/find-cpoly.sh
 
 mkdir -p build/strap/bin build/strap/lib
 
-warn "note: compiling unoptimised bootstrap version"
-warn "      this will take a moment because modern compilers are ridiculously slow"
-
 num_items=4 # ← remember to change this manually
 is_tty && printf "[0/$num_items] build " || :
+extrasrc=""
+if [ "$cpoly_use_bundled" = 1 ]; then
+	extrasrc="
+libcpoly/src/arc4random/arc4random.c
+libcpoly/src/progname.c
+libcpoly/src/reallocarray.c
+libcpoly/src/strchrnul.c
+libcpoly/src/strtonum.c"
+fi
 $cc $cflags $cpoly_cflags $ldflags $cpoly_ldflags \
 -Icbits/include \
 src/build.c \
@@ -62,10 +63,15 @@ cbits/src/errmsg.c \
 cbits/src/errorstring.c \
 cbits/src/fmt.c \
 cbits/src/iobuf.c \
-cbits/src/path.c \
+cbits/src/path.c $extrasrc \
 -o build/strap/bin/build
 
 is_tty && printf "\r[K[1/$num_items] libbuild " || :
+extrasrc=""
+if [ "$cpoly_use_bundled" = 1 ]; then
+	extrasrc="
+libcpoly/src/progname.c"
+fi
 $cc -shared $cflags $cpoly_cflags $ldflags $cpoly_ldflags \
 -fvisibility=hidden \
 -Icbits/include \
@@ -73,27 +79,37 @@ src/ipcclient.c \
 src/libbuild.c \
 cbits/src/errmsg.c \
 cbits/src/errorstring.c \
-cbits/src/iobuf.c \
+cbits/src/iobuf.c $extrasrc \
 -o build/strap/lib/libbuild.so
 
 is_tty && printf "\r[K[2/$num_items] build-dep " || :
+extrasrc=""
+if [ "$cpoly_use_bundled" = 1 ]; then
+	extrasrc="
+libcpoly/src/progname.c"
+fi
 $cc $cflags $cpoly_cflags $ldflags $cpoly_ldflags \
 -Icbits/include \
 -Lbuild/strap/lib -lbuild \
 src/build-dep.c \
 cbits/src/errmsg.c \
 cbits/src/errorstring.c \
-cbits/src/iobuf.c \
+cbits/src/iobuf.c $extrasrc \
 -o build/strap/bin/build-dep
 
 is_tty && printf "\r[K[3/$num_items] build-infile " || :
+extrasrc=""
+if [ "$cpoly_use_bundled" = 1 ]; then
+	extrasrc="
+libcpoly/src/progname.c"
+fi
 $cc $cflags $cpoly_cflags $ldflags $cpoly_ldflags \
 -Icbits/include \
 -Lbuild/strap/lib -lbuild \
 src/build-infile.c \
 cbits/src/errmsg.c \
 cbits/src/errorstring.c \
-cbits/src/iobuf.c \
+cbits/src/iobuf.c $extrasrc \
 -o build/strap/bin/build-infile
 
 is_tty && printf "\r[K" || :

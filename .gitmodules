@@ -1,3 +1,6 @@
 [submodule "cbits"]
 	path = cbits
 	url = git@gitlab.com:mikesmiffy128/cbits
+[submodule "libcpoly"]
+	path = libcpoly
+	url = git@gitlab.com:mikesmiffy128/libcpoly

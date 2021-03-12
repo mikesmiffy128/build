@@ -8,6 +8,11 @@ out=lib/lua/$luaver/lbuild.so
 libs=libbuild
 src="src/lbuild.c"
 
+if [ "$cpoly_use_bundled" ]; then src="$src
+	libcpoly/src/progname.c
+	libcpoly/src/reallocarray.c"
+fi
+
 tryverheader() {
 	echo "#include <lua$luaver/lua.h>" | $cc -E -x c -o /dev/null - 2>/dev/null
 }
@@ -32,7 +37,7 @@ if [ "$include" != "" ]; then
 else
 	warn "note: Lua $luaver header couldn't be found, module won't be built"
 	warn "* build will still work, but Lua $luaver build scripts will not."
-	exit 0 # bails out of target.buils
+	exit 0
 fi
 
 # vi: sw=4 ts=4 noet tw=80 cc=80 ft=sh

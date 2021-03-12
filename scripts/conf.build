@@ -11,6 +11,7 @@ target_os="$4"
 # using less icache might even be better
 cflags="-O2 -fpic -Wall -pedantic -Werror=implicit-function-declaration \
 -Werror=vla -Wno-parentheses -Wno-missing-braces -Wno-misleading-indentation \
+-Wno-empty-translation-unit \
 -Icbits/include"
 ldflags="-O2 -fpic -s $extra_ldflags"
 
@@ -29,6 +30,7 @@ mkdir -p "$build_dir"
 echo "cc='`shellesc "$cc"`'
 cflags='`shellesc "$cflags"`'
 ldflags='`shellesc "$ldflags"`'
+cpoly_use_bundled=$cpoly_use_bundled
 " > "$build_dir/config"
 
 # vi: sw=4 ts=4 noet tw=80 cc=80
