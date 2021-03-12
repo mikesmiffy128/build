@@ -2,18 +2,18 @@
 build-infile scripts/lib.sh
 . scripts/lib.sh
 
-build_dir="$1"
-cc="$2"
-cc_type="$3"
-target_os="$4"
-targetname="$5"
+targetfile="$1" # first arg via shebang
+build_dir="$2"
+cc="$3"
+cc_type="$4"
+target_os="$5"
 shift 5 # let targets take extra params (eg lbuild takes lua version)
 
 build-dep scripts/conf.build "$build_dir" "$cc" "$cc_type" "$target_os"
 . "$build_dir/config"
 
-build-infile "scripts/$targetname.target"
-. "scripts/$targetname.target"
+build-infile "$targetfile"
+. "$targetfile"
 
 set -- # use the shell's single array for object file names
 for s in $src; do
@@ -28,7 +28,7 @@ for s in $src; do
 done
 # wait for required libraries (ie libbuild) - assume same configuration for those
 for d in $libs; do
-	build-dep -n "scripts/target.build" "$build_dir" "$cc" "$cc_type" "$target_os" "$d"
+	build-dep -n "scripts/$d.target" "$build_dir" "$cc" "$cc_type" "$target_os"
 done
 build-dep -w
 

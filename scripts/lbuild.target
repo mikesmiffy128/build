@@ -1,3 +1,5 @@
+#!scripts/target.build
+
 luaver="$1"
 
 cflags="$cflags -fvisibility=hidden -DLUA_REVISION=${luaver##5.}"

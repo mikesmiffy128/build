@@ -32,12 +32,12 @@ host_build_dir="$build_dir/host" # good enough, I think
 
 # build the targets!
 for t in build libbuild build-dep build-infile; do
-	build-dep -n "scripts/target.build" "$full_build_dir" "$cc" "$cc_type" "$target_os" $t
+	build-dep -n "scripts/$t.target" "$full_build_dir" "$cc" "$cc_type" "$target_os"
 done
 # target all the widely used lua versions - people literally use all of these
 # all the time. 5.1 should also cover LuaJit
 for v in 5.1 5.2 5.3 5.4; do
-	build-dep -n "scripts/target.build" "$full_build_dir" "$cc" "$cc_type" "$target_os" lbuild $v
+	build-dep -n "scripts/lbuild.target" "$full_build_dir" "$cc" "$cc_type" "$target_os" $v
 done
 
 # tests!

@@ -1,3 +1,5 @@
+#!scripts/target.build
+
 cflags="$cflags -fvisibility=hidden"
 ldflags="$ldflags -shared -fvisibility=hidden"
 
@@ -10,4 +12,4 @@ src="\
 	cbits/src/errorstring.c
 	cbits/src/iobuf.c"
 
-# vi: sw=4 ts=4 noet tw=80 cc=80
+# vi: sw=4 ts=4 noet tw=80 cc=80 ft=sh

@@ -1,3 +1,5 @@
+#!scripts/target.build
+
 ldflags="$ldflags $pie"
 
 out=bin/build
