@@ -30,6 +30,11 @@ bool ipcclient_send(int fd, const struct ipc_req *msg) {
 			if (!obuf_put0t(O, msg->infile) || !obuf_putc(O, '\0')) {
 				return false;
 			}
+			break;
+		case IPC_REQ_TASKTITLE:
+			if (!obuf_put0t(O, msg->title) || !obuf_putc(O, '\0')) {
+				return false;
+			}
 	}
 	return obuf_flush(O);
 }

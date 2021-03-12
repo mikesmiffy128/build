@@ -10,7 +10,8 @@
 enum ipc_req_type {
 	IPC_REQ_DEP,
 	IPC_REQ_WAIT,
-	IPC_REQ_INFILE
+	IPC_REQ_INFILE,
+	IPC_REQ_TASKTITLE, // note: NOT interned on server, unlike most strings
 };
 
 struct ipc_req {
@@ -18,6 +19,7 @@ struct ipc_req {
 	union {
 		struct task_desc dep; // IPC_REQ_DEP
 		const char *infile; // IPC_REQ_INFILE
+		char *title; // IPC_REQ_TASKTITLE
 	};
 };
 

@@ -21,6 +21,8 @@ srcconf() { :; } # default: nothing special
 build-infile "$targetfile"
 . "$targetfile"
 
+build-tasktitle "TARGET $out"
+
 set -- # use the shell's single array for object file names
 for s in $src; do
 	__cflags="$cflags"

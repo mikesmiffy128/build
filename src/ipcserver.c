@@ -82,7 +82,7 @@ bool ipcserver_recv(int fd, struct ipc_req *msg, const char *taskworkdir) {
 freeav:		free(argv);
 			goto e;
 		case IPC_REQ_WAIT: break; // nothing else!
-		case IPC_REQ_INFILE:;
+		case IPC_REQ_INFILE:
 			s = (struct str){0};
 			if (!str_clear(&s)) return false;
 			// same deal, append paths and then canonicalise
@@ -101,6 +101,13 @@ freeav:		free(argv);
 			const char *infile = db_intern_free(canon);
 			if (!infile) goto e;
 			msg->infile = infile;
+			break;
+		case IPC_REQ_TASKTITLE:
+			s = (struct str){0};
+			if (!str_clear(&s)) return false;
+			n = ibuf_getstr(I, &s, '\0');
+			if (n == -1 || INVAL(n < 0)) goto e;
+			msg->title = s.data;
 	}
 	return true;
 

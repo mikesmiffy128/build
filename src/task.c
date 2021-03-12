@@ -52,6 +52,7 @@ struct task {
 	uint cycleidx;
 	uchar maxdepstatus; // highest exit code from exited deps
 	// char padding[3];
+	char *title; // user-provided friendly description for tui/logs
 	struct task_desc desc;
 	struct db_taskresult *outresult; // write to here when done
 	// on-disk file to store error output (note: fd is positive; top bit unused)
@@ -86,6 +87,7 @@ static struct task *opentask(struct task_desc d, uint id) {
 		t->nblockers = 0;
 		t->blockees = (struct vec_taskp){0};
 		t->cyclecheck = 0;
+		t->title = 0;
 		if (!table_init_taskdesc(&t->deps)) goto e;
 		if (!table_init_infile(&t->infiles)) goto e1;
 		char buf[12];
@@ -105,6 +107,9 @@ e:	freelist_free_task(t);
 
 static void closetask(struct task *t) {
 	close(t->fd_err);
+	// don't free here, title gets assigned to tui_lastdone before closetask is
+	// called; after that, tui_lastdone gets freed before next title is set
+	// free(t->title);
 	free(t->blockees.data);
 	free(t->deps.data); free(t->deps.flags);
 	free(t->infiles.data); free(t->infiles.flags);
@@ -240,6 +245,10 @@ r:	if (t->haderr) showerr(s, t->fd_err);
 	if (t == goal) goalstatus = status; // XXX stupid
 	if (!--nstarted) exit_clean(goalstatus); // "
 	table_del_activetask(&activetasks, t->desc);
+	if (t->title) {
+		free(tui_lastdone);
+		tui_lastdone = t->title;
+	}
 	closetask(t);
 	free(s);
 }
@@ -471,7 +480,9 @@ static void proc_cb(int evtype, union proc_ev_param P, struct proc_info *proc) {
 				case IPC_REQ_DEP:
 					reqdep(t, req.dep, false, t->outresult->newness); break;
 				case IPC_REQ_WAIT: reqwait(t); break;
-				case IPC_REQ_INFILE: if (!reqinfile(t, req.infile)) goto fail;
+				case IPC_REQ_INFILE:
+					if (!reqinfile(t, req.infile)) goto fail; break;
+				case IPC_REQ_TASKTITLE: free(t->title); t->title = req.title;
 			}
 			break;
 		case PROC_EV_UNBLOCK:

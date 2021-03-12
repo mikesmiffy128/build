@@ -1,0 +1,17 @@
+#!scripts/target.build
+
+ldflags="$ldflags $pie -lbuild"
+
+out=bin/build-tasktitle
+libs=libbuild
+src="\
+	src/build-tasktitle.c
+	cbits/src/errmsg.c
+	cbits/src/errorstring.c
+	cbits/src/iobuf.c"
+
+if [ "$cpoly_use_bundled" ]; then src="$src
+	libcpoly/src/progname.c"
+fi
+
+# vi: sw=4 ts=4 noet tw=80 cc=80 ft=sh

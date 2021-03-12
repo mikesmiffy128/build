@@ -7,6 +7,8 @@ cc="$2" # this will be hostcc
 cc_type="$3"
 testcase="$4"
 
+build-tasktitle "TEST $testcase"
+
 cflags="-O1 -g -Icbits/include"
 
 # skip tests if test.h doesn't work

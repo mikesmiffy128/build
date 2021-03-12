@@ -67,4 +67,17 @@ export void build_infile(const char *path) {
 	}
 }
 
+export void build_tasktitle(const char *s) {
+	if (sockfd == -1) init("build_tasktitle");
+	if (!s[0]) {
+		errmsg_diex(2, "libbuild: ", msg_fatal, "task title cannot be empty");
+	}
+	struct ipc_req req;
+	req.type = IPC_REQ_TASKTITLE;
+	req.title = (char *)s; // XXX hmmm
+	if (!ipcclient_send(sockfd, &req)) {
+		errmsg_die(100, "libbuild: ", msg_fatal, "couldn't send IPC request");
+	}
+}
+
 // vi: sw=4 ts=4 noet tw=80 cc=80

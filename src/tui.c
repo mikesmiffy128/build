@@ -18,12 +18,12 @@ static const char *const spinner[] = {"╸╺", "━ ", "╺╸", " ━"};
 static int spinstate = 0;
 
 int tui_ndone = 0;
+char *tui_lastdone = 0;
 
-static void tui_redraw(void) {
+static void redraw(void) {
 	// TODO(tui): do... whatever I come up with over here
 	obuf_put0t(buf_tty, "\r\033[K");
 	obuf_put0t(buf_tty, spinner[spinstate]);
-	obuf_put0t(buf_tty, " tasks: ");
 	fmt_buf_u32(buf_tty, nactive);
 	obuf_putc(buf_tty, '/');
 	fmt_buf_u32(buf_tty, maxpar);
@@ -34,6 +34,11 @@ static void tui_redraw(void) {
 	}
 	fmt_buf_u32(buf_tty, tui_ndone);
 	obuf_put0t(buf_tty, " done");
+	if (tui_lastdone) {
+		obuf_put0t(buf_tty, ", last: `");
+		obuf_put0t(buf_tty, tui_lastdone);
+		obuf_putc(buf_tty, '`');
+	}
 	obuf_flush(buf_tty);
 	obuf_reset(buf_tty);
 	// HACK!! if our tty is different from stderr then stderr was sent to a
@@ -47,20 +52,22 @@ static void tui_redraw(void) {
 	if (devtty == 2) obuf_put0t(buf_err, "\r\033[K");
 }
 
+#define INTERVAL 50
+
 static struct evloop_timer timer;
 static void spincb(struct evloop_timer *unused) {
 	spinstate = (spinstate + 1) % (sizeof(spinner) / sizeof(*spinner));
-	tui_redraw(); // TODO(tui): can technically partially redraw? worth effort?
-	timer.deadline += 67;
+	redraw(); // TODO(tui): can technically partially redraw? worth effort?
+	timer.deadline += INTERVAL;
 	// note: right now this redraw is also the only redraw (which conveniently
 	// rate-limits writes to the terminal a bit to avoid excessive syscall spam)
 	evloop_sched(&timer);
 }
 static void showcb(struct evloop_timer *unused) {
 	shouldshow = true;
-	tui_redraw();
+	redraw();
 	timer.cb = &spincb; // play a little animation, for fun!
-	timer.deadline += 67;
+	timer.deadline += INTERVAL;
 	evloop_sched(&timer);
 }
 static struct evloop_timer timer = {.cb = showcb};

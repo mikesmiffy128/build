@@ -8,6 +8,8 @@ cflags="$3" # note: includes -c (except for tests)
 src="$4"
 obj="$5"
 
+build-tasktitle "CC `basename "$src"`"
+
 mkdir -p "$build_dir"
 
 build-infile scripts/cdep

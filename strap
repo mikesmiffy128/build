@@ -112,6 +112,20 @@ cbits/src/errorstring.c \
 cbits/src/iobuf.c $extrasrc \
 -o build/strap/bin/build-infile
 
+is_tty && printf "\r[K[3/$num_items] build-tasktitle " || :
+extrasrc=""
+if [ "$cpoly_use_bundled" = 1 ]; then
+	extrasrc="
+libcpoly/src/progname.c"
+fi
+$cc $cflags $cpoly_cflags $ldflags $cpoly_ldflags \
+-Icbits/include \
+-Lbuild/strap/lib -lbuild \
+src/build-tasktitle.c \
+cbits/src/errmsg.c \
+cbits/src/errorstring.c \
+cbits/src/iobuf.c $extrasrc \
+-o build/strap/bin/build-tasktitle
 is_tty && printf "\r[K" || :
 
 # note: this step sort of precludes cross-compiling from strap, but that's okay,

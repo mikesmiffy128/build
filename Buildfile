@@ -31,7 +31,7 @@ full_build_dir="$build_dir/$target_os-$target_arch-$cc_type-$cc_ver"
 host_build_dir="$build_dir/host" # good enough, I think
 
 # build the targets!
-for t in build libbuild build-dep build-infile; do
+for t in build libbuild build-dep build-infile build-tasktitle; do
 	build-dep -n "scripts/$t.target" "$full_build_dir" "$cc" "$cc_type" "$target_os"
 done
 # target all the widely used lua versions - people literally use all of these

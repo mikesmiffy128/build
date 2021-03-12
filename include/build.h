@@ -39,6 +39,15 @@ int build_dep_wait(void);
  */
 void build_infile(const char *path);
 
+/*
+ * Tells build that the currently-running task has a friendly, descriptive name
+ * that can be displayed to the user rather than spitting out the argv. Since
+ * very long commands are hard to display in a sensible way, only custom titles
+ * are displayed; it is therefore a pretty good idea to set one of these in a
+ * task that plays a significant role in the build.
+ */
+void build_tasktitle(const char *s);
+
 #endif
 
 // vi: sw=4 ts=4 noet tw=80 cc=80
