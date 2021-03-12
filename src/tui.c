@@ -14,7 +14,7 @@ static int devtty = -1;
 static struct obuf *buf_tty = OBUF(-1, 128);
 static bool shouldshow = false;
 
-static const char *const spinner[] = {"╸╺", "━ ", "╺╸", " ━"};
+static const char *const spinner[] = {"╸╺ ", "━  ", "╺╸ ", " ━ "};
 static int spinstate = 0;
 
 int tui_ndone = 0;
