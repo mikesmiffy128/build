@@ -53,14 +53,13 @@ static int _ntests = 0;
 #define _TESTCAT(a, b) _TESTCAT1(a, b)
 #define _TESTSTR1(x) #x
 #define _TESTSTR(x) _TESTSTR1(x)
-#define TEST(desc_, ...) \
+#define TEST(...) \
 	static bool _TESTCAT(_test_f_, __LINE__)(void); \
 	_TEST_SILENCE_CLANG \
 	static struct _test _TESTCAT(_test_, __LINE__) = { \
 		.flags = _TEST_USE_DEFAULT_FLAGS, \
 		.timeout = _TEST_DEFAULT_TIMEOUT, \
-		.desc = __FILE__":"_TESTSTR(__LINE__)": "desc_, \
-		__VA_ARGS__, \
+		.desc = __FILE__":"_TESTSTR(__LINE__)": " __VA_ARGS__, \
 		._f = &_TESTCAT(_test_f_, __LINE__) \
 	}; \
 	_TEST_UNSILENCE_CLANG \

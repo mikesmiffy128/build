@@ -5,7 +5,7 @@
 
 #include "../src/fpath.c"
 
-TEST("canonicalisation should copy canonical paths as-is", 0) {
+TEST("canonicalisation should copy canonical paths as-is") {
 	char buf[PATH_MAX];
 	fpath_canon("abc/def", buf, 0);
 	if (strcmp(buf, "abc/def")) return false;
@@ -16,7 +16,7 @@ TEST("canonicalisation should copy canonical paths as-is", 0) {
 	return true;
 }
 
-TEST("canonicalisation should backtrack properly on /.. at end", 0) {
+TEST("canonicalisation should backtrack properly on /.. at end") {
 	char buf[PATH_MAX];
 	fpath_canon("abc/def/..", buf, 0);
 	if (strcmp(buf, "abc")) return false;
@@ -25,7 +25,7 @@ TEST("canonicalisation should backtrack properly on /.. at end", 0) {
 	return true;
 }
 
-TEST("canonicalisation should overwrite properly on /../x", 0) {
+TEST("canonicalisation should overwrite properly on /../x") {
 	char buf[PATH_MAX];
 	fpath_canon("abc/def/../xyz", buf, 0);
 	if (strcmp(buf, "abc/xyz")) return false;
@@ -36,14 +36,14 @@ TEST("canonicalisation should overwrite properly on /../x", 0) {
 	return true;
 }
 
-TEST("canonicalisation should properly report errors", 0) {
+TEST("canonicalisation should properly report errors") {
 	char buf[PATH_MAX];
 	return fpath_canon("/usr/bin/grep", buf, 0) == FPATH_ABSOLUTE;
 	return fpath_canon("aa/../../b", buf, 0) == FPATH_OUTSIDE;
 	return fpath_canon("aa/../b/", buf, 0) == FPATH_TRAILSLASH;
 }
 
-TEST("canonicalisation should deduplicate slashes", 0) {
+TEST("canonicalisation should deduplicate slashes") {
 	char buf[PATH_MAX];
 	fpath_canon("hello/////world", buf, 0);
 	return !strcmp(buf, "hello/world");
