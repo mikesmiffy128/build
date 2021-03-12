@@ -2,6 +2,11 @@
 build-infile scripts/lib.sh
 . scripts/lib.sh
 
+# XXX really weird: we're the interpreter for targets, so have to note self as
+# an infile...  not sure if this should be solved in any particular way (parse
+# shebangs I guess???)
+build-infile scripts/target.build
+
 targetfile="$1" # first arg via shebang
 build_dir="$2"
 cc="$3"
@@ -12,11 +17,14 @@ shift 5 # let targets take extra params (eg lbuild takes lua version)
 build-dep scripts/conf.build "$build_dir" "$cc" "$cc_type" "$target_os"
 . "$build_dir/config"
 
+srcconf() { :; } # default: nothing special
 build-infile "$targetfile"
 . "$targetfile"
 
 set -- # use the shell's single array for object file names
 for s in $src; do
+	__cflags="$cflags"
+	srcconf "$s" # allow per-file cflags (used by lbuild)
 	# hash the flags, so multiple configurations of eg lbuild produce different
 	# objects (truncate said hash a bit to avoid unwieldiness)
 	build-infile scripts/sha1
@@ -25,6 +33,7 @@ for s in $src; do
 	o="$build_dir/`echo "${s%%.c}" | sed -e s@src/@@g -e s@/@:@g`:$sha1.o"
 	set -- "$@" "$o"
 	build-dep -n scripts/cc.build "$build_dir" "$cc" "-c $cflags" "$s" "$o"
+	cflags="$__cflags"
 done
 # wait for required libraries (ie libbuild) - assume same configuration for those
 for d in $libs; do

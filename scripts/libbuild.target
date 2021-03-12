@@ -1,7 +1,6 @@
 #!scripts/target.build
 
-cflags="$cflags -fvisibility=hidden"
-ldflags="$ldflags -shared -fvisibility=hidden"
+ldflags="$ldflags -shared"
 
 out=lib/libbuild.so
 libs=

@@ -9,11 +9,14 @@ target_os="$4"
 
 # -O2 produces smaller code than -O3 and speed shouldn't be hugely affected;
 # using less icache might even be better
-cflags="-O2 -fpic -Wall -pedantic -Werror=implicit-function-declaration \
--Werror=vla -Wno-parentheses -Wno-missing-braces -Wno-misleading-indentation \
+# also, note -fvisibility=hidden unilaterally, this allows libbuild and programs
+# to reuse compiled objects, saving space and time
+cflags="-O2 -pipe -fpic -fvisibility=hidden \
+-Wall -pedantic -Werror=implicit-function-declaration -Werror=vla \
+-Wno-parentheses -Wno-missing-braces -Wno-misleading-indentation \
 -Wno-empty-translation-unit \
 -Icbits/include"
-ldflags="-O2 -fpic -s $extra_ldflags"
+ldflags="-O2 -pipe -fpic -s -fvisibility=hidden $extra_ldflags"
 
 # NOTE to future packagers: create local.conf.sh to override or extend the flags
 # above (in weird scenarios where that's necessary for some reason...)

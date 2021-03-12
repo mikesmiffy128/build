@@ -2,8 +2,8 @@
 
 luaver="$1"
 
-cflags="$cflags -fvisibility=hidden -DLUA_REVISION=${luaver##5.}"
-ldflags="$ldflags -shared -fvisibility=hidden -lbuild"
+cflags="$cflags"
+ldflags="$ldflags -shared -lbuild"
 out=lib/lua/$luaver/lbuild.so
 libs=libbuild
 src="src/lbuild.c"
@@ -33,11 +33,15 @@ else
 fi
 
 if [ "$include" != "" ]; then
-	cflags="$cflags -DLUA_HEADER=<$include> -DLUA_AUX_HEADER=<$auxinclude>"
+	cflags_lbuild="-DLUA_REVISION=${luaver##5.} -DLUA_HEADER=<$include> -DLUA_AUX_HEADER=<$auxinclude>"
 else
 	warn "note: Lua $luaver header couldn't be found, module won't be built"
 	warn "* build will still work, but Lua $luaver build scripts will not."
 	exit 0
 fi
+
+srcconf() {
+	if [ "$1" = "src/lbuild.c" ]; then cflags="$cflags $cflags_lbuild"; fi
+}
 
 # vi: sw=4 ts=4 noet tw=80 cc=80 ft=sh
