@@ -11,7 +11,7 @@ cflags="-O1 -g -Icbits/include"
 
 # skip tests if test.h doesn't work
 build-dep scripts/check-constructor.build "$cc" "$cc_type" || exit 0
-build-dep scripts/cc.build "$build_dir" "$cc" "$cflags -include test/test.h" \
+build-dep scripts/cc.build "$build_dir" "$cc" "$cflags -include cbits/test/test.h" \
 		"test/$testcase.test.c" "$build_dir/$testcase.test"
 
 "$build_dir/$testcase.test"
