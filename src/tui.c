@@ -52,6 +52,11 @@ static void redraw(void) {
 	if (devtty == 2) obuf_put0t(buf_err, "\r\033[K");
 }
 
+// FURTHER HACK!! since the vforked child shares buf_err, pre-exec() errors
+// will get muddled up with our tui stuff if we don't shuffle stuff around
+void tui_prevfork(void) { if (devtty) obuf_reset(buf_err); }
+void tui_postvfork(void) { if (devtty == 2) obuf_put0t(buf_err, "\r\033[K"); }
+
 #define INTERVAL 50
 
 static struct evloop_timer timer;

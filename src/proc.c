@@ -20,6 +20,7 @@
 #include "fpath.h"
 #include "ipcserver.h"
 #include "proc.h"
+#include "tui.h"
 
 static struct q {
 	// struct proc_info *proc;
@@ -154,6 +155,7 @@ static void do_start(const char *const *argv, const char *workdir,
 		goto e4;
 	}
 	setsockfdvar(ipcsock[1]);
+	tui_prevfork();
 	proc->_pid = vfork();
 	if (proc->_pid == -1) {
 		errmsg_warn(msg_error, "couldn't fork new process");
@@ -180,6 +182,7 @@ ce:		if (errno == ENOENT || errno == EACCES) {
 		// otherwise it's an abnormal error, we should try again later
 		_exit(100);
 	}
+	tui_postvfork();
 	++nactive;
 	// path search allocates a new string, so free only if != what was passed
 	if (prog != argv[0]) free((char *)prog);
