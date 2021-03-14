@@ -3,11 +3,13 @@
 #include <fmt.h>
 
 const char *sigstr(int sig) {
+#ifdef SIGRTMIN // OpenBSD omits this standard
 	static char rtbuf[10] = "RT";
 	if (sig >= SIGRTMIN && sig <= SIGRTMAX) {
 		fmt_fixed_u32(rtbuf + 2, sig - SIGRTMAX + 1);
 		return rtbuf;
 	}
+#endif
 	switch (sig) {
 		case SIGABRT: return "ABRT";
 		case SIGALRM: return "ALRM";
