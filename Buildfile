@@ -6,14 +6,12 @@ build_dir="$BUILD_ROOT_DIR/build"
 cc=
 hostcc=
 
-is_default=1
-
 # Make-style key=value options :)
 while [ $# != 0 ]; do
 	case "$1" in
 		build-dir=*) build_dir="${1##build-dir=}" ;;
-		cc=*) is_default=0; cc="${1##cc=}" ;;
-		hostcc=*) is_default=0 hostcc="${1##hostcc=}" ;;
+		cc=*) cc="${1##cc=}" ;;
+		hostcc=*) hostcc="${1##hostcc=}" ;;
 		*) die 2 "invalid option: $1" ;;
 	esac
 	shift
