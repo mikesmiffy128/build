@@ -100,7 +100,7 @@ bool fpath_leavesubdir(const char *dir, char *wayout, uint outsz) {
 		*p++ = '.';
 		*p++ = '.';
 	}
-	*wayout = '\0';
+	*p = '\0';
 	return true;
 }
 
