@@ -1,5 +1,3 @@
-#!scripts/target.build
-
 ldflags="$ldflags -shared"
 
 out=lib/libbuild.so

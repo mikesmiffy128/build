@@ -2,12 +2,7 @@
 build-infile scripts/lib.sh
 . scripts/lib.sh
 
-# XXX really weird: we're the interpreter for targets, so have to note self as
-# an infile...  not sure if this should be solved in any particular way (parse
-# shebangs I guess???)
-build-infile scripts/target.build
-
-targetfile="$1" # first arg via shebang
+targetfile="scripts/$1.target"
 build_dir="$2"
 cc="$3"
 cc_type="$4"
@@ -39,7 +34,7 @@ for s in $src; do
 done
 # wait for required libraries (ie libbuild) - assume same configuration for those
 for d in $libs; do
-	build-dep -n "scripts/$d.target" "$build_dir" "$cc" "$cc_type" "$target_os"
+	build-dep -n scripts/target.build "$d" "$build_dir" "$cc" "$cc_type" "$target_os"
 done
 build-dep -w
 
