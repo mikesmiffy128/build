@@ -12,7 +12,7 @@ int main(int argc, char *argv[]) {
 	bool nonblock = false;
 	bool waitall = false;
 	FOR_OPTS(argc, argv, {
-		case 'C': workdir = OPTARG(argc, argv); hasworkdir = true;
+		case 'C': workdir = OPTARG(argc, argv); hasworkdir = true; break;
 		// doesn't really make any sense to have both these flags set...
 		case 'n': nonblock = true; waitall = false; break;
 		case 'w': waitall = true; nonblock = false;
