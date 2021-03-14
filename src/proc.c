@@ -161,6 +161,8 @@ static void do_start(const char *const *argv, const char *workdir,
 	}
 	if (!proc->_pid) {
 		setpgid(0, 0); // see proc_killall() below
+		close(ipcsock[0]);
+		dup2(errsock[1], 2);
 		// unblock all signals - NOTE! this may cause handlers to run in the
 		// child, for now this is _assumed_ not to be an issue
 		sigprocmask(SIG_SETMASK, &(sigset_t){0}, 0);
@@ -169,8 +171,6 @@ static void do_start(const char *const *argv, const char *workdir,
 					workdir);
 			goto ce;
 		}
-		close(ipcsock[0]);
-		dup2(errsock[1], 2);
 		execve(prog, (char *const *)argv, procenv);
 		errmsg_warn("child: ", msg_fatal, "couldn't exec ", prog);
 ce:		if (errno == ENOENT || errno == EACCES) {

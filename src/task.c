@@ -287,12 +287,11 @@ static bool reqdep(struct task *req, struct task_desc dep, bool isgoal,
 	bool needrerun = cleanbuild; // usually false
 	// if haven't checked up-to-date-ness in this run, do a depth first search
 	// (even if cleanbuild, still start deps eagerly in parallel)
-	for (const struct task_desc *dep = r->deps; dep - r->deps < r->ndeps;
-			++dep) {
+	for (const struct task_desc *pp = r->deps; pp - r->deps < r->ndeps; ++pp) {
 		// currently rerunning all deps preemptively/concurrently
 		// it's up for debate/testing whether this is the universally
 		// best-performing approach, but it's the approach for now
-		if (reqdep(0, *dep, false, r->newness)) needrerun = true;
+		if (reqdep(0, *pp, false, r->newness)) needrerun = true;
 	}
 	// ideally we wouldn't check these if we know we already need to rerun, but
 	// if we don't update the infiles themselves, they'll change later and
@@ -313,15 +312,26 @@ r:;		struct task **tp = table_put_activetask(&activetasks, dep);
 		if (!*tp) goto e;
 		// create the implicit infile, but only for in-tree executables
 		if (path_isfull(dep.argv[0])) {
-			char *canon = malloc(strlen(dep.argv[0]) + 1);
+			// XXX should we just use a PATH_MAX array and avoid this malloc?
+			// this was the first thing I did and it works; should use brain at
+			// a later date
+			struct str frombase = {0};
+			if (!str_clear(&frombase) ||
+					!str_append0t(&frombase, dep.workdir) ||
+					!str_appendc(&frombase, '/') ||
+					!str_append0t(&frombase, dep.argv[0])) {
+				goto e;
+			}
+			char *canon = malloc(frombase.sz);
 			if (!canon) goto e;
-			if (fpath_canon(dep.argv[0], canon, 0) == FPATH_OK) {
+			if (fpath_canon(frombase.data, canon, 0) == FPATH_OK) {
 				const char *infile = db_intern_free(canon);
 				if (!infile || !infile_ensure(infile)) goto e;
 				const char **pp = table_put_infile(&(*tp)->infiles, infile);
 				if (!pp) goto e;
 				*pp = infile;
 			}
+			free(frombase.data);
 		}
 		if (isgoal) goal = *tp; // XXX also stupid
 		(*tp)->outresult = r;
