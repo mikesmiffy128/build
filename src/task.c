@@ -192,7 +192,7 @@ static noreturn handle_failure(struct task *t, int status) {
 static void handle_success(struct task *t, int status) {
 	char *s = desctostr(&t->desc);
 	if (t->nblockers) {
-		errmsg_warnx(msg_crit, "task `", s, "` exited while supposedly "
+		errmsg_warnx(msg_fatal, "task `", s, "` exited while supposedly "
 				"blocked - fix your code!");
 		handle_failure(t, 2);
 	}
