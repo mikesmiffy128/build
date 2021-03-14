@@ -5,20 +5,32 @@ it up and running to either use it on your machine, or mess around with the code
 if you feel so inclined. Please read everything before continuing for a greatly
 increased chance of success.
 
+== COMPATIBILITY ==
+
+The code is known to compile and run on modern Linux with glibc or musl using
+either Clang or GCC, as well as on FreeBSD 12.2, NetBSD 9.1 and OpenBSD 6.8 with
+their default compilers. illumos should also work but cannot currently be tested
+for dumb reasons (VM won't work???). If any of these platforms don't work, it's
+a bug. Hardware-wise, only x86_64 has been tested so far, but there is nothing
+that should fundamentally cause issues on other reasonable architectures.
+Reports of any issues (or successes!) are welcome.
+
+NOTE: macOS is *unsupported* because 1) it's terrible 2) I can't test it. Ports
+to macOS and other terrible and/or untestable platforms (including old
+enterprise Unixes like HP/UX, AIX, and so on) are left to third parties.
+
+Windows is unsupported because it is fundamentally incompatible with almost
+every aspect of how this code works. However, now that we have WSL2, that ought
+to be an adequate way to use build (and other Unix tools) if you're stuck in a
+Windows environment. There's also MSYS2 and Cygwin, but they're really slow and
+currently untested.
+
 == HOW TO BUILD THE SOFTWARE ==
 
 build builds build. If you've built and installed build, just type `build`.
-If you haven't done that yet, use ./strap to bootstrap it.
-
-The build scripts don't require much more than a POSIX shell and standard Unix
-utilities, and of course a C compiler. The code is known to compile and run
-successfully on a fresh install of Linux with glibc or musl and either Clang or
-GCC, as well as on FreeBSD and NetBSD with their standard compilers, and should
-soon be tested on OpenBSD as well. If any of these platforms don't work, it's a
-bug. illumos should also theoretically work although it cannot currently be
-tested for dumb reasons. Hardware-wise, only x86_64 has really been tested so
-far, but there is nothing that should fundamentally cause issues on most other
-reasonable architectures. Reports of any issues (or successes!) are welcome.
+If you haven't done that yet, use ./strap to bootstrap it. The build scripts
+don't require much more than a POSIX shell and standard Unix utilities, and of
+course a C compiler.
 
 This project relies on libc functions and declarations that you probably don't
 have because your OS is bad. These are provided by libcpoly, my
