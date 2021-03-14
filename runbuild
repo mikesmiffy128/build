@@ -18,7 +18,7 @@ if [ -f "$dir/build/.runbuild-cache" ]; then
 	full_build_dir="`cat "$dir/build/.runbuild-cache"`"
 	good "$@"
 fi
-if ! [ -d build ]; then bad; fi
+if ! [ -d "$dir/build" ]; then bad; fi
 . "$dir/scripts/lib.sh"
 if [ "$CC" != "" ]; then cc="$CC"; else . "$dir/scripts/cc-pick.sh"; fi
 . "$dir/scripts/cc-target.sh"
