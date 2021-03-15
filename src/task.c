@@ -149,7 +149,6 @@ static char *desctostr(const struct task_desc *t) {
 	if (t->workdir[0] != '.' || t->workdir[1]) { // not in base dir
 		if (!str_append0t(&s, "` in `")) goto e;
 		if (!str_append0t(&s, t->workdir)) goto e;
-		if (!str_appendc(&s, '`')) goto e;
 	}
 	return s.data;
 e:	free(s.data);
