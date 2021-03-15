@@ -49,14 +49,19 @@ static int f_dep(lua_State *L) {
 	return 0;
 }
 
+static int f_dep_wait(lua_State *L) {
+	lua_pushinteger(L, build_dep_wait());
+	return 1;
+}
+
 static int f_infile(lua_State *L) {
 	build_infile(luaL_checkstring(L, 1));
 	return 0;
 }
 
-static int f_dep_wait(lua_State *L) {
-	lua_pushinteger(L, build_dep_wait());
-	return 1;
+static int f_tasktitle(lua_State *L) {
+	build_tasktitle(luaL_checkstring(L, 1));
+	return 0;
 }
 
 #define ADDF(name) do { \
@@ -76,7 +81,7 @@ static int f_dep_wait(lua_State *L) {
  */
 export int luaopen_lbuild(lua_State *L) {
 	lua_newtable(L);
-	ADDF(dep); ADDF(infile); ADDF(dep_wait);
+	ADDF(dep); ADDF(dep_wait); ADDF(infile); ADDF(tasktitle);
 	return 1;
 }
 
