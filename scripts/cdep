@@ -7,6 +7,10 @@
 # itself before sending them to build-infile
 
 echo "$1"
+if [ "${1%%.test.c}" != "$1" ]; then
+	# we use `-include` so forcibly count this as a dep for tests
+	echo cbits/test/test.h
+fi
 dir="`dirname "$1"`"
 sed -ne 's/^\#include //p' "$1" |
 	sed 's/[>"]$//' |

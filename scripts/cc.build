@@ -13,7 +13,7 @@ build-tasktitle "CC `basename "$src"`"
 mkdir -p "$build_dir"
 
 build-infile scripts/cdep
-build-infile -- `scripts/cdep "$src" | awk '!x[$0]++'` >&2
+build-infile -- `scripts/cdep "$src" | awk '!x[$0]++'`
 
 $cc $cflags -o "$obj" "$src"
 
