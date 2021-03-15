@@ -233,6 +233,7 @@ static void handle_success(struct task *t, int status) {
 	free((void *)r->infiles);
 	r->infiles = infilelist.data; r->ninfiles = infilelist.sz;
 	r->newness = db_newness;
+	r->status = status;
 	db_committaskresult(r);
 	r->checked = true;
 	goto r;
