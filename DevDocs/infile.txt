@@ -54,14 +54,14 @@ Appendix: infile-ing directories
 
 Build doesn't stop you from trying to do this! It doesn't bother checking if
 something is a directory - HOWEVER, the standard update checking obviously only
-looks at stat(), which does not adequately indicate if something changed.  The
-good news is hooking up a file watcher ought to be able to actually give the
-desired behaviour, which may well have some actual use cases. For example, one
-use case: mark a path as an infile, then if it's a file, hand it off to a task,
-and if it's a directory, mark everything in it as an infile, and keep doing that
-recursively. Now you have glob()ular dependencies, which might be useful for
-building Java or Go (or something else which just builds a whole tree of stuff
-at once).
+looks at stat(), which does not adequately indicate if something changed inside
+the directory. The good news is hooking up a file watcher ought to be able to
+actually give the desired behaviour, which may well have some actual use cases.
+For example, one use case: mark a path as an infile, then if it's a file, hand
+it off to a task, and if it's a directory, mark everything in it as an infile,
+and keep doing that recursively. Now you have glob()ular dependencies, which
+might be useful for building Java or Go (or something else which just builds a
+whole tree of stuff at once).
 
 Generally, *I* prefer having fixed lists of files for a few different reasons,
 but you aren't forced to agree with this preference! Do however keep in mind

@@ -35,6 +35,10 @@ int maxpar = 0;
 bool cleanbuild = false;
 
 int main(int argc, char *argv[]) {
+	if (getenv(ENV_SOCKFD) || getenv(ENV_ROOT_DIR)) { // check both for paranoia
+		errmsg_diex(1, "can't run build from build!");
+	}
+
 	const char *default_command[] = {"./Buildfile", 0};
 	const char **command = default_command;
 	const char *workdir = ".";
@@ -71,7 +75,6 @@ int main(int argc, char *argv[]) {
 	if (open("/dev/null", O_RDWR) == -1 || dup(0) == -1) {
 		errmsg_die(100, msg_fatal, "couldnt't open /dev/null");
 	}
-
 	evloop_init();
 	db_init();
 	for (const char **pp = command; *pp; ++pp) {

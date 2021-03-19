@@ -58,7 +58,7 @@ static bool savesymnum(const char *name, vlong val) {
 }
 
 static vlong loadsymnum(const char *name, const char **errstr) {
-	char buf[PATH_MAX];
+	char buf[21];
 	if (!loadsymstr(name, buf, sizeof(buf))) return 0;
 	vlong ret = strtonum(buf, LLONG_MIN, LLONG_MAX, errstr);
 	return ret;
@@ -101,15 +101,62 @@ static noreturn diemem(void) {
 	errmsg_die(100, msg_fatal, "couldn't allocate memory for task database");
 }
 
+static void unlock(void) { unlinkat(db_dirfd, "lock", 0); }
+
 void db_init(void) {
 	if (mkdir(BUILDDB_DIR, 0755) == -1 && errno != EEXIST) {
-		errmsg_die(100, msg_fatal, "couldn't create .builddb directory");
+		errmsg_die(100, msg_fatal, "couldn't create "BUILDDB_DIR" directory");
 	}
 	db_dirfd = open(BUILDDB_DIR, O_DIRECTORY | O_RDONLY | O_CLOEXEC);
 	if (db_dirfd == -1) {
-		errmsg_die(100, msg_fatal, "couldn't open .builddb directory");
+		errmsg_die(100, msg_fatal, "couldn't open "BUILDDB_DIR" directory");
 	}
-	// XXX this error handling is far from perfect in terms of simplicity
+	// do some idiot proofing
+	pid_t p = getpid();
+	char buf[sizeof(p) <= 4 ? 11 : 21];
+	if (sizeof(p) <= 4) buf[fmt_fixed_u32(buf, p)] = '\0';
+	else buf[fmt_fixed_u64(buf + 0, p)] = '\0'; // buf + 0 dodges bogus warning
+	for (int attempt = 0; attempt < 5; ++attempt) {
+		if (symlinkat(buf, db_dirfd, "lock") == -1) {
+			if (errno != EEXIST) {
+				errmsg_die(100, msg_fatal, "couldn't create lock file");
+			}
+			const char *errstr = 0;
+			errno = 0;
+			vlong oldpid = loadsymnum("lock", &errstr);
+			if (errno == ENOENT) {
+				// old process just finished, start the next race!
+				continue;
+			}
+			else if (errno == EINVAL) {
+				errmsg_diex(2, msg_fatal, "lock file PID is ", errstr);
+			}
+			else if (errno) {
+				errmsg_die(100, msg_fatal, "couldn't read lock file");
+			}
+			if (getpgid(oldpid) == -1) {
+				if (errno == ESRCH) {
+					// build must have died/crashed, start the next race!
+					// XXX this is actually technically a race right here,
+					// but not clear how to do better (this is probably good
+					// enough for basic idiot proofing anyway)
+					unlinkat(db_dirfd, "lock", 0);
+					continue;
+				}
+				errmsg_warn(msg_warn, "couldn't check lock file PID");
+				errmsg_diex(100, msg_note, "refusing to run until "BUILDDB_DIR
+						"/lock is manually deleted, just to be safe");
+			}
+			else {
+				errmsg_diex(1, msg_error, "build is already running!");
+			}
+		}
+		goto ok;
+	}
+	// inform the user of their severe mishandling of their tools
+	errmsg_diex(2, msg_fatal, "user is grossly incompetent");
+ok:	atexit(&unlock);
+	// XXX all this error handling is far from perfect in terms of simplicity
 	const char *errstr = 0;
 	errno = 0;
 	int dbversion = loadsymnum("version", &errstr); // ignore overflow, shrug
@@ -129,7 +176,7 @@ void db_init(void) {
 		// can add migration or something later if we actually bump the
 		// version, but this is fine for now
 		errmsg_diex(1, msg_fatal, "unsupported task database version; "
-				"try rm -rf .builddb/");
+				"try rm -rf "BUILDDB_DIR"/");
 	}
 	errstr = 0;
 	errno = 0;
@@ -160,7 +207,7 @@ void db_init(void) {
 			}
 			return;
 		}
-		errmsg_die(200, msg_fatal, "couldn't open .builddb/strings");
+		errmsg_die(200, msg_fatal, "couldn't open "BUILDDB_DIR"/strings");
 	}
 	union {
 		struct ibuf b;
@@ -314,7 +361,7 @@ void db_finalise(void) {
 	if (!needwrite) return;
 	int fd = openat(db_dirfd, "newtables", O_RDWR | O_CREAT | O_TRUNC, 0644);
 	if (fd == -1) {
-		errmsg_warn(msg_crit, "couldn't open .builddb/newtables");
+		errmsg_warn(msg_crit, "couldn't open "BUILDDB_DIR"/newtables");
 		goto e;
 	}
 	union {
