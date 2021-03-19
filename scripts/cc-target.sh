@@ -1,3 +1,5 @@
+# This file is dedicated to the public domain.
+
 _target_info() {
 	target_os="$1"
 	target_arch="$2"

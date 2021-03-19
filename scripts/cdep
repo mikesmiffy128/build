@@ -1,4 +1,5 @@
 #!/bin/sh -e
+# This file is dedicated to the public domain.
 
 # TODO(cdep) because I've yet to write a proper dependency analyser, this
 # simple crude script is used for the project for now.

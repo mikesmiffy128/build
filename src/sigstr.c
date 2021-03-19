@@ -1,3 +1,5 @@
+/* This file is dedicated to the public domain. */
+
 #include <signal.h>
 
 #include <fmt.h>

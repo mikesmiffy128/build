@@ -1,3 +1,5 @@
+/* This file is dedicated to the public domain. */
+
 #ifndef INC_TIME_H
 #define INC_TIME_H
 

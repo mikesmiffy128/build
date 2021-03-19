@@ -1,3 +1,5 @@
+/* This file is dedicated to the public domain. */
+
 #ifndef INC_UNREACHABLE_H
 #define INC_UNREACHABLE_H
 

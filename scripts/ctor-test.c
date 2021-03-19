@@ -1,3 +1,5 @@
+/* This file is dedicated to the public domain. */
+
 // see check-constructor.build - we want to make sure constructors fire properly
 // since they're technically nonstandard and someone might find a compiler that
 // doesn't handle them well

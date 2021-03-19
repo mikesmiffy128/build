@@ -1,3 +1,5 @@
+# This file is dedicated to the public domain.
+
 cc=cc
 
 # most platforms use clang these days but netbsd and illumos still ship GCC

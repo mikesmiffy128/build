@@ -1,3 +1,5 @@
+/* This file is dedicated to the public domain. */
+
 #ifndef INC_FD_H
 #define INC_FD_H
 

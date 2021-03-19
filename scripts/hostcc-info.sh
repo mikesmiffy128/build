@@ -1,3 +1,5 @@
+# This file is dedicated to the public domain.
+
 # XXX HACK! should make cc-info more generic; too lazy for now
 # (this is just needed for the test stuff in Buildfile which was added late)
 _cc_type="$cc_type"

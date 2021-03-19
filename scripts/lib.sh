@@ -1,3 +1,5 @@
+# This file is dedicated to the public domain.
+
 __progname="`basename "$0"`"
 is_cmd() { command -v "$1" >/dev/null; }
 warn() { printf "%s: %s\n" "$__progname" "$1" >&2; }

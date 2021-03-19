@@ -1,3 +1,5 @@
+# This file is dedicated to the public domain.
+
 ldflags="$ldflags $pie -lbuild"
 
 out=bin/build-dep

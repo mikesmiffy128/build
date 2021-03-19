@@ -1,3 +1,5 @@
+/* This file is dedicated to the public domain. */
+
 #include <stdbool.h>
 #include <unistd.h>
 

@@ -1,3 +1,5 @@
+# This file is dedicated to the public domain.
+
 # allow these to be overridden for hypothetical cross-compile purposes
 # WARNING: there's no dependency on these variables, so be careful if you ever
 # change them (use -B to be safe)

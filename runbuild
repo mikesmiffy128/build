@@ -1,4 +1,5 @@
 #!/bin/sh -e
+# This file is dedicated to the public domain.
 
 good() {
 	export LD_LIBRARY_PATH="$full_build_dir/out/lib:$LD_LIBRARY_PATH"

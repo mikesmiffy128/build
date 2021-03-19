@@ -1,3 +1,5 @@
+/* This file is dedicated to the public domain. */
+
 #ifndef INC_SIGSTR_H
 #define INC_SIGSTR_H
 

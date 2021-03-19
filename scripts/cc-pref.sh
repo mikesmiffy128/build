@@ -1,3 +1,5 @@
+# This file is dedicated to the public domain.
+
 # to make it as easy as possible for users to reproduce builds (and to make it
 # as easy as possible for me to test-compile on supported platforms), we try to
 # use the native compiler that ships will each stable OS release - except on

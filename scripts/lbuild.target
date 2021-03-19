@@ -1,3 +1,5 @@
+# This file is dedicated to the public domain.
+
 luaver="$1"
 
 cflags="$cflags"

@@ -1,3 +1,5 @@
+# This file is dedicated to the public domain.
+
 todo() {
 	if [ $# = 0 ]; then
 		printf "Active TODO list:\n\n"

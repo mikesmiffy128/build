@@ -1,4 +1,6 @@
 #!/bin/sh -e
+# This file is dedicated to the public domain.
+
 build-infile scripts/lib.sh
 . scripts/lib.sh
 

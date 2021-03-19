@@ -5,6 +5,10 @@ it up and running to either use it on your machine, or mess around with the code
 if you feel so inclined. Please read everything before continuing for a greatly
 increased chance of success.
 
+ - Michael Smith <mikesmiffy128@gmail.com>
+
+NOTE: read LICENCE (or LICENSE) for copyright and permission information!!!
+
 == COMPATIBILITY ==
 
 The code is known to compile and run on modern Linux with glibc or musl using
@@ -136,18 +140,19 @@ it, so it is up to you (and/or your OS packager one day) to figure that one out.
 This should be self-explanatory, but for the sake of maximum clarity, here's a
 quick tour:
 
-src/     - implementation source code
-test/    - automated tests: sanity checks and regression coverage
-include/ - public headers, to be installed along with the software
-cbits/   - an incomplete helper library, with a few working parts used
-           extensively in build; changing or reusing this is not recommended
-man/     - manual pages to be installed along with the software (see above)
-DevDocs/ - notes, rants, random information that might come in handy
-TODO/    - issue tracking, see below
-scripts/ - build scripts for the build system that builds build
-tools/   - scripts and snippets to support the development of the project
-build/   - default compile output directory
-junk/    - doesn't exist, but is ignored by Git so you can dump stuff there
+src/      - implementation source code
+test/     - automated tests: sanity checks and regression coverage
+include/  - public headers, to be installed along with the software
+cbits/    - an incomplete helper library, with a few working parts used
+            extensively in build; changing or reusing this is not recommended
+libcpoly/ - compatibility wrappers for libc to make porting easier (see above)
+man/      - manual pages to be installed along with the software (see above)
+DevDocs/  - notes, rants, random information that might come in handy
+TODO/     - issue tracking, see below
+scripts/  - build scripts for the build system that builds build
+tools/    - scripts and snippets to support the development of the project
+build/    - default compile output directory
+junk/     - doesn't exist, but is ignored by Git so you can dump stuff there
 
 Oh, also: this project is set up for use with a Language Server such as ccls or
 clangd: `tools/mkcompdb` will generate an appropriate compile_commands.json.

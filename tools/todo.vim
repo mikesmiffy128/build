@@ -1,3 +1,5 @@
+" This file is dedicated to the public domain.
+
 function! Todo(...)
 	if exists("a:1") && a:1 != ""
 		copen

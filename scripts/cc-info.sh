@@ -1,3 +1,5 @@
+# This file is dedicated to the public domain.
+
 # TODO try to support more compilers
 cc_type="`echo "
 #if defined(__clang__)
