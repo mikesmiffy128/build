@@ -26,7 +26,7 @@ version_clang() {
 		shift 2 # clang version ____
 		cc_ver="$1$_suffix"
 	}
-	_split $("$cc" --version | head -1)
+	_split $($cc --version | head -1)
 	cc_friendly="${_prefix}Clang $cc_ver"
 }
 
@@ -47,7 +47,7 @@ version_gcc() {
 		while [ $# != 1 ]; do shift; done
 		cc_ver="$1$_suffix"
 	}
-	_split $("$cc" --version | head -1)
+	_split $($cc --version | head -1)
 	cc_friendly="${_prefix}GCC $cc_ver"
 }
 
