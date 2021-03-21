@@ -19,7 +19,7 @@ freebsd
 openbsd
 #elif defined(__NetBSD__)
 netbsd
-#elif defined(__SunOS)
+#elif defined(__SunOS) || defined(__sun)
 illumos
 #elif defined(__APPLE__)
 macos
@@ -45,6 +45,6 @@ riscv
 #else
 unknown
 #endif
-" | $cc -E - | grep -v "#" | tail -n2`
+" | $cc -E - | grep -v "#" | grep -v '^$' | tail -n2`
 
 # vi: sw=4 ts=4 noet tw=80 cc=80

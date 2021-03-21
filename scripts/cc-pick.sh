@@ -21,6 +21,10 @@ for _t in $_try; do
 done
 
 if [ "$cc" = cc ]; then
+	if ! is_cmd cc; then
+		warn "error: missing a C compiler - install Clang or GCC!"
+		exit 1
+	fi
 	warn 'warning: unsure what C compiler to use, just using `cc`'
 	warn "* if something fails to build, install Clang or GCC! *"
 fi

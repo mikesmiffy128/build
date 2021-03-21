@@ -1,6 +1,6 @@
 # This file is dedicated to the public domain.
 
-ldflags="$ldflags $pie"
+ldflags="$ldflags$lsocket $pie"
 
 out=bin/build
 libs=

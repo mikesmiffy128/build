@@ -17,9 +17,10 @@ build-tasktitle "[compiler config]"
 # to reuse compiled objects, saving space and time
 cflags="-O2 -pipe -fpic -fvisibility=hidden \
 -Wall -pedantic -Werror=implicit-function-declaration -Werror=vla \
--Wno-parentheses -Wno-missing-braces -Wno-misleading-indentation \
--Wno-empty-translation-unit \
--Icbits/include"
+-Wno-parentheses -Wno-missing-braces -Wno-misleading-indentation"
+# for libcpoly; unfortunately gcc will always complain about this :(
+if [ "$cc_type" = clang ]; then cflags="$cflags -Wno-empty-translation-unit"; fi
+cflags="$cflags -Icbits/include"
 ldflags="-O2 -pipe -fpic -s -fvisibility=hidden $extra_ldflags"
 
 # NOTE to future packagers: create local.conf.sh to override or extend the flags
@@ -32,12 +33,15 @@ use find-cpoly
 
 cflags="$cflags $cpoly_cflags $extra_cflags"
 ldflags="$ldflags $cpoly_ldflags $extra_ldflags"
+lsocket=
+if [ "$target_os" = illumos ]; then lsocket=" -lsocket"; fi # ugh.
 
 mkdir -p "$build_dir"
-echo "cc='`shellesc "$cc"`'
+printf %s "cc='`shellesc "$cc"`'
 cflags='`shellesc "$cflags"`'
 ldflags='`shellesc "$ldflags"`'
 cpoly_use_bundled=$cpoly_use_bundled
+lsocket='$lsocket'
 " > "$build_dir/config"
 
 # vi: sw=4 ts=4 noet tw=80 cc=80

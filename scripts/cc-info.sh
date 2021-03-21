@@ -1,7 +1,8 @@
 # This file is dedicated to the public domain.
 
 # TODO try to support more compilers
-cc_type="`echo "
+# note: changed `` to $() here because illumos' ksh is a bit broken
+cc_type="$(echo "
 #if defined(__clang__)
 clang
 #elif defined(__GNUC__)
@@ -9,7 +10,7 @@ gcc
 #else
 unknown
 #endif
-" | $cc -E - | tail -n1`"
+" | $cc -E - | tail -n1)"
 
 version_clang() {
 	cc_ver=

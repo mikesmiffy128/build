@@ -25,7 +25,8 @@ warn "      this will take a moment because modern compilers are ridiculously sl
 
 cflags="-O0 -w -fpic"
 ldflags="-O0"
-test_cflags=
+lsocket=
+if [ "$target_os" = illumos ]; then lsocket=" -lsocket"; fi # ugh.
 
 . scripts/find-cpoly.sh
 
@@ -42,7 +43,7 @@ libcpoly/src/reallocarray.c
 libcpoly/src/strchrnul.c
 libcpoly/src/strtonum.c"
 fi
-$cc $cflags $cpoly_cflags $ldflags $cpoly_ldflags \
+$cc $cflags $cpoly_cflags $ldflags$lsocket $cpoly_ldflags \
 -Icbits/include \
 src/build.c \
 src/db.c \
@@ -70,7 +71,7 @@ if [ "$cpoly_use_bundled" = 1 ]; then
 	extrasrc="
 libcpoly/src/progname.c"
 fi
-$cc -shared $cflags $cpoly_cflags $ldflags $cpoly_ldflags \
+$cc -shared $cflags $cpoly_cflags $ldflags$lsocket $cpoly_ldflags \
 -fvisibility=hidden \
 -Icbits/include \
 src/ipcclient.c \
