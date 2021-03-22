@@ -130,6 +130,8 @@ To make matters more awkward, plenty of Linux distributions compress man pages
 with gzip, as does FreeBSD, but OpenBSD and NetBSD do not. Chances are a few
 Linux distributions probably don't either.
 
+Oh, and section directories exist too.
+
 Coming up with a way to automate man page installation/staging for every
 conceivable environment is a sufficiently annoying task that I don't want to do
 it, so it is up to you (and/or your OS packager one day) to figure that one out.

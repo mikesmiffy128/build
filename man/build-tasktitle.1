@@ -1,0 +1,37 @@
+.\" This file is dedicated to the public domain.
+.\"
+.Dd March 22 2020
+.Dt BUILD-TASKTITLE 1
+.Sh NAME
+.Nm build-tasktitle
+.Nd friendly display name for build tasks
+.\" XXX abusing .Os, is this considered okay?
+.Os build
+.Sh SYNOPSIS
+.Nm build-tasktitle
+.Ar filename...
+.Sh DESCRIPTION
+.Nm
+tells
+.Xr 1
+to give the currently-executing task a friendly display name, for user
+interaction purposes. It is useful for highly parameterised tasks that may
+otherwise be burdensome to list on screen.
+.Pp
+This command is purely an informational hint and does not affect the semantics
+of the build.
+.Sh EXIT CODE
+This program always exits with zero status, for all intents and purposes.
+.Pp
+If the program is invoked outside of the context of a build, it will complain
+and exit with status 50.
+.Sh SEE ALSO
+.Xr build 1 ,
+.Xr build-dep 1 ,
+.Xr build-infile 1 ,
+.Xr libbuild 3
+.Sh COPYRIGHT
+This documentation is placed into the public domain. The
+.Nm build
+software is copyright Michael Smith
+.Aq mikesmiffy128@gmail.com .

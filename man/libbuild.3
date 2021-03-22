@@ -1,0 +1,117 @@
+.\" This file is dedicated to the public domain.
+.\"
+.Dd March 22 2020
+.Dt LIBBUILD 3
+.Sh NAME
+.Nm build_dep ,
+.Nm build_dep_wait ,
+.Nm build_infile ,
+.Nm build_tasktitle
+.Nd low-level interface to the efficient and flexible build tool
+.Sh LIBRARY
+.ds str-Lb-libbuild build system core client library (\-lbuild)
+.ds doc-str-Lb-libbuild \*[str-Lb-libbuild]
+.Lb libbuild
+.\" XXX abusing .Os, is this considered okay?
+.Os build
+.Sh SYNOPSIS
+.In build.h
+.Ft void
+.Fn build_dep "const char *const *argv" "const char *workdir"
+.Ft int
+.Fn build_dep_wait "void"
+.Ft void
+.Fn build_infile "const char *path"
+.Ft void
+.Fn build_tasktitle "const char *title"
+.Sh DESCRIPTION
+These functions allow processes running as tasks under
+.Xr build 1
+to execute and wait on dependencies, and report their input files (infiles) to
+enable reruns when files are changed.
+.Pp
+Normally, these functions would be called from a higher-level language binding,
+such as the Lua
+.Nm lbuild
+module, or the shell command wrappers,
+.Xr build-dep 1
+etcetera. However, it is also possible for a compiler or other tool to link
+against this library in order to automatically report information to
+.Xr build 1 .
+Doing so would allow build scripts to simply use the tool and have rebuilds
+magically happen without the need for external dependency tracking.
+.Pp
+.Nm build_dep
+tells
+.Xr build 1
+that the currently-running task depends on the task specified by `argv` and
+`workdir`, and causes that task to either begin running once the necessary
+resources are available, or have its existing result used if already up-to-date.
+It is equivalent to running
+.Xr build-dep 1
+with the \-n flag. As with the command, the working directory must be relative,
+and must not leave the project root (the directory in which
+.Xr build 1
+was initially invoked).
+.Pp
+After invoking
+.Nm build_dep
+one or more times, it is necessary to run
+.Nm build_dep_wait
+to wait for dependencies to finish running. This function will return the
+highest status code from all of the requested programs. Failure to call this
+function after
+.Nm build_dep
+is essentially undefined behaviour.
+.Pp
+.Nm build_infile
+tells
+.Xr build 1
+that the currently-running task depends on access to and/or the contents of the
+file at
+.Dq path
+(it is equivalent to passing the path to the
+.Xr build-infile 1
+command). If the file is changed in the future, the task will be considered
+out of date and will be rerun rather than having its saved result reused.
+.Pp
+.Nm build_tasktitle
+gives
+.Xr build 1
+a friendly name for the current task, for display purposes. This is purely a
+user-facing hint, and does not affect the semantics of the build system. It is
+(of course), equivalent to
+.Xr build-tasktitle 1
+.Sh RETURN VALUES
+Most of these functions are non-blocking and return immediately without
+producing a result.
+.Nm build_dep_wait
+blocks until all the task's previously-requested dependencies have exited, and
+returns the highest status code that was produced. The process may also block
+for longer, subject to scheduling decisions made by
+.Xr build 1 .
+.Sh NOTES
+These functions are part of a framework of sorts, and expect to be called in the
+context of a build; calling them in other contexts will just rudely exit the
+current process.
+.Pp
+These functions are not thread-safe, nor are they multi-process safe:
+.Xr build 1
+fundamentally expects that each task is its own single-threaded thing
+\(em
+even if a subprocess is started, that process should finish before the parent
+does something else. This is to enable efficient parallel task scheduling. Of
+course, tasks that want to run things in parallel should also be using the
+dependency mechanism of
+.Xr build 1
+for that purpose.
+.Sh SEE ALSO
+.Xr build-dep 1 ,
+.Xr build-infile 1 ,
+.Xr build-tasktitle 1 ,
+.Xr libbuild 3
+.Sh COPYRIGHT
+This documentation is placed into the public domain. The
+.Nm build
+software is copyright Michael Smith
+.Aq mikesmiffy128@gmail.com .

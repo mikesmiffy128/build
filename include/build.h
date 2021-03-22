@@ -48,7 +48,7 @@ void build_infile(const char *path);
  * are displayed; it is therefore a pretty good idea to set one of these in a
  * task that plays a significant role in the build.
  */
-void build_tasktitle(const char *s);
+void build_tasktitle(const char *title);
 
 #endif
 

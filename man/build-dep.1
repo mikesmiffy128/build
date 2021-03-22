@@ -1,0 +1,70 @@
+.\" This file is dedicated to the public domain.
+.\"
+.Dd March 21 2020
+.Dt BUILD-DEP 1
+.Sh NAME
+.Nm build-dep
+.Nd make dependency requests for the current build system task
+.\" XXX abusing .Os, is this considered okay?
+.Os build
+.Sh SYNOPSIS
+.Nm build-dep
+.Op Fl n
+.Op Fl C Ar workdir
+.Op Ar command...
+.Nm build-dep
+.Fl w
+.Sh DESCRIPTION
+.Nm
+asks the build system to invoke a task, and marks that task as a dependency of
+the currently executing task.
+.Pp
+If the
+.Fl n
+flag is given, the current task continues on in parallel with the other task.
+Otherwise,
+.Nm
+blocks and waits for the dependency to finish running, then exits with its
+status, as if the command had been invoked directly.
+.Pp
+Tasks are normally started in the requesting task's working directory; the
+.Fl C
+flag specifies a different directory, relative to the current one (subject to
+the remark in BUGS). A working directory must not be an absolute path, and must
+not be outside of the project root (the directory in which
+.Xr build 1
+was invoked).
+.Fl C
+can also be specified without specifying
+.Ar command ,
+in which case the standard ./Buildfile will be used.
+.Pp
+If multiple tasks have been requested using
+.Fl n ,
+it is necessary to wait for them afterwards using the
+.Fl w
+flag. Not doing so will result in undefined behaviour and great shame upon your
+family.
+.Sh EXIT CODE
+This program mimics the status of whatever task is requested, unless the
+.Fl n
+option is used, in which case it exits immediately with status 0.
+.Pp
+If the program is invoked outside of the context of a build, it will complain
+and exit with status 50.
+.Sh BUGS
+A task's working directory is the directory the task was started in, rather
+than the working directory of the process making the request. It is not really
+clear whether the edge cases associated with this behaviour are the desired
+ones, so for now tasks should not rely on changing their own working
+directories.
+.Sh SEE ALSO
+.Xr build 1 ,
+.Xr build-infile 1 ,
+.Xr build-tasktitle 1 ,
+.Xr libbuild 3
+.Sh COPYRIGHT
+This documentation is placed into the public domain. The
+.Nm build
+software is copyright Michael Smith
+.Aq mikesmiffy128@gmail.com .

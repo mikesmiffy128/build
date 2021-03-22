@@ -1,0 +1,46 @@
+.\" This file is dedicated to the public domain.
+.\"
+.Dd March 22 2020
+.Dt BUILD-INFILE 1
+.Sh NAME
+.Nm build-infile
+.Nd tell the build system about input files
+.\" XXX abusing .Os, is this considered okay?
+.Os build
+.Sh SYNOPSIS
+.Nm build-infile
+.Ar filename...
+.Sh DESCRIPTION
+.Nm
+tells
+.Xr build 1
+about one or more
+.Em infiles ,
+subsequent changes to which will cause the current task to be marked to rerun.
+.Pp
+Infile paths are specified relative to the task's working directory (subject to
+the remark in BUGS). Paths must not be absolute, and must not be outside of the
+project root (the directory in which
+.Xr build 1
+was invoked).
+.Sh EXIT CODE
+This program always exits with zero status, for all intents and purposes.
+.Pp
+If the program is invoked outside of the context of a build, it will complain
+and exit with status 50.
+.Sh BUGS
+A task's working directory is the directory the task was started in, rather
+than the working directory of the process making the request. It is not really
+clear whether the edge cases associated with this behaviour are the desired
+ones, so for now tasks should not rely on changing their own working
+directories.
+.Sh SEE ALSO
+.Xr build 1 ,
+.Xr build-dep 1 ,
+.Xr build-tasktitle 1 ,
+.Xr libbuild 3
+.Sh COPYRIGHT
+This documentation is placed into the public domain. The
+.Nm build
+software is copyright Michael Smith
+.Aq mikesmiffy128@gmail.com .

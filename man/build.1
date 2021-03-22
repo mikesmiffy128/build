@@ -1,51 +1,156 @@
 .\" This file is dedicated to the public domain.
 .\"
-.Dd December 07 2020
+.Dd March 22 2020
 .Dt BUILD 1
 .Sh NAME
 .Nm build
 .Nd efficient and flexible build tool
-.\" TODO(manpages): abusing .Os, is this okay? idunno
+.\" XXX abusing .Os, is this considered okay?
 .Os build
 .Sh SYNOPSIS
 .Nm build
 .Op Fl j Ar jobs_at_once
 .Op Fl C Ar workdir
 .Op Fl B
-.Ar [command...]
+.Op Ar command...
 .Sh DESCRIPTION
 .Nm
-invokes an executable
-\(em
-either
-.Ar command
-or ./Buildfile if no command is specified. If the executable has already run
-before,
-.Nm
-instead produces the same return code and output. If the executable has been
-modified, it will be rerun.
-
-Executables may also ask the build system for dependencies. If a dependency has
-to be rerun, then its known dependents will also be rerun to keep everything up
-to date. See
+is a task-based build system which keeps track of dependency information between
+runs. It starts by invoking either
+.Ar command ,
+or ./Buildfile if no command is specified. The command normally runs in the
+current working directory, unless overridden by the
+.Fl C
+option (see
 .Xr build-dep 1
-and
+for notes on working directory specification)
+.Pp
+.Nm
+is responsible for scheduling tasks to run in parallel to make best use of
+available CPU threads. The
+.Fl j
+flag can be used to override the default concurrent process limit, which is
+otherwise determined based on the thread count reported by the operating system.
+.Pp
+If tasks are ever somehow stuck wrongly considered up to date, or the
+development environment has changed, use the
+.Fl B
+flag to force a full rebuild.
+.Sh DEPENDENCY MODEL
+This build system is based on the idea that dependencies are often not fully
+known until after work has been done. Therefore, there is no syntax for
+specifying rules to
+.Nm .
+Instead, each task (defined as simply a command and a working directory) is
+responsible for telling
+.Nm
+about the dependencies it comes across as it runs. When a task finishes,
+.Nm
+keeps note of its standard error output and exit status; future requests to run
+the tasks thereby completely instantly. In order to make the build system
+useful, dependencies noted by tasks are also stored and used to determine when
+tasks need to actually run again.
+.Pp
+There are two types of dependencies: other tasks, and
+.Em infiles .
+.Pp
+Dependencies on tasks are requested using
+.Xr build-dep 1 ,
+which semantically is often the same as directly invoking a program. It tells
+.Nm
+to run a specified task, and then reports back with the exit status of that
+task (in the same way, the main
+.Nm
+program exits with the status of the initial task that it runs). If multiple
+tasks depend on one task, the cost of running it will only be paid at most once.
+Standard error output is also only displayed once for a given task to avoid
+duplicate messages.
+.Pp
+When multiple task dependencies are known (and they don't all depend on each
+other), things can get launched in parallel.
+.Nm
+automatically does all the necessary scheduling work to make that optimal, as
+mentioned above.
+.Pp
+The other type of dependencies,
+.Dq infiles,
+are requested with the
 .Xr build-infile 1
-for help with dependency specification.
-
+command. An infile is a file path, relative to the project root, which may have
+an effect on the outcome of a task. Whenever any of a task's infiles are
+detected to have changed, the task will be considered out-of-date and rerun.
+All task programs inside of a project are also given themselves as infiles
+automatically, to avoid having to specify the obvious. The idea here is that any
+file which is not a user-edited part of the project does not need to be an
+infile.
+.Pp
+Note that an infile doesn't necessarily have to exist: it is merely a path.
+Creation, deletion and modification of a file may all have an effect on the
+outcome of a task; furthermore, it is okay for a task to fail if a file is
+removed.
+.Nm
+treats such a failure as a task result, just as it treats success as a task
+result.
+.Pp
+An infile can also technically point at a directory, although
+.Nm
+is unable to detect changes to the contents of a directory, since there is no
+quick (constant-time) way to query this information. However, if a file watcher
+can be made to report directory content changes to
+.Nm ,
+there is no reason a workflow couldn't be built on that (however, see BUGS
+below).
+.Sh CLIENT LIBRARY
+The simplest mechanism for invoking build commands is usually to write some
+basic shell scripts and use the aforementioned commands along with the usual
+compiler commands. However, more sophisticated tools can use
+.Xr libbuild 3
+as a means of talking to the build system directly. For example, a hypothetical
+fancy C preprocessor could automatically report infiles along its search path.
+It is also possible to write build scripts using a more sophisticated scripting
+language: there are currently Lua bindings to libbuild (via the
+.Nm lbuild )
+module, and other language support is planned as well. Of course, it is also
+possible to use any FFI to call into the C library.
+.Sh ENVIRONMENT
+Tasks started by
+.Nm build
+will have the environment variable
+.Ev BUILD_ROOT_DIR
+defined as a path back to the project root (wherever
+.Nm
+was invoked). This path will always be relative, meaning it will either consist
+of
+.Pa ../../ ,
+or just be single dot if the task is already running at the root.
 .Sh EXIT STATUS
 .Nm
-exits with whatever
+exits with whatever status
 .Ar command
-exited with, unless an internal error occurs, in which case 100 is used to
-signify a temporary error, and 200 is used to signify something really really
-bad.
-
+exited with, unless an internal error occurs, in which case 100 is generally
+used to signify a temporary error, and 200 is used to signify something
+catastrophically bad. In the event of a serious error, tasks will be killed and
+the state of stored results on disk will remain unchanged.
+.Pp
+Tasks exiting with high statuses, or getting killed by signals, will also cause
+.Nm
+to give up and exit with status 100, as will tasks attemping to introduce
+dependency cycles. In the event of a dependency cycle,
+.Nm
+will display a listing of the involved tasks before exiting.
+.Sh BUGS
+There is currently no way to connect a file watcher to
+.Nm
+for faster infile checks. This is planned for a future version.
+.Pp
+There aren't enough scripting language bindings yet.
 .Sh SEE ALSO
-.Xr build-infile 1 ,
 .Xr build-dep 1 ,
+.Xr build-infile 1 ,
+.Xr build-tasktitle 1 ,
+.Xr libbuild 3
 .Sh COPYRIGHT
 This documentation is placed into the public domain. The
-.Xr build 1
+.Nm
 software is copyright Michael Smith
 .Aq mikesmiffy128@gmail.com .
