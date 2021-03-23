@@ -65,9 +65,8 @@ struct task {
 	struct proc_info base; // must be first member; pointer is casted
 						   // (if moved, would need something like container_of)
 	uint cyclecheck;
-	uint cycleidx;
 	uchar maxdepstatus; // highest exit code from exited deps
-	// char padding[3];
+	// char padding[7]; // 7!!! :(
 	char *title; // user-provided friendly description for tui/logs
 	struct task_desc desc;
 	struct db_taskresult *outresult; // write to here when done
@@ -400,7 +399,6 @@ static bool cyclecheck(struct task *req, struct task *dep) {
 	if (req->cyclecheck == cyclecheckid) return false;
 	req->cyclecheck = cyclecheckid;
 	for (uint i = 0; i < req->blockees.sz; ++i) {
-		req->cycleidx = i;
 		if (req->blockees.data[i] == dep) {
 			errmsg_warnx(msg_fatal, "blocked tasks would deadlock "
 					"(dependency cycle)");

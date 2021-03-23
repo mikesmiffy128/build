@@ -297,7 +297,6 @@ void proc_init(proc_ev_cb cb) {
 
 void proc_start(struct proc_info *proc, const char *const *argv,
 		const char *workdir) {
-	// FIXME canonicalise workdir (it is *assumed* to be canonical for now)
 	if (nactive < maxpar) {
 		do_start(argv, workdir, proc);
 	}
