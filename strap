@@ -8,7 +8,7 @@ if [ "$CC" != "" ]; then cc="$CC"; else . scripts/cc-pick.sh; fi
 
 # Manage expectations!
 case "$target_os" in
-	linux) ;; linux_musl) ;; freebsd) ;; netbsd) ;; openbsd) ;;
+	linux) ;; linux_musl) ;; freebsd) ;; netbsd) ;; openbsd) ;; illumos) ;;
 	macos)
 		warn "warning: macOS is known to be a really BAD Unix implementation!"
 		warn "         it is also currently totally untested - expect issues!" ;;
