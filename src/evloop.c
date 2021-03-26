@@ -21,6 +21,7 @@
 #include <unistd.h>
 
 #include <errmsg.h>
+#include <fmt.h>
 #include <intdefs.h>
 #include <noreturn.h>
 #include <skiplist.h>
@@ -126,9 +127,14 @@ noreturn evloop_run(void) {
 			if (pfds[i].revents) {
 				--polled;
 				if (pfds[i].revents & POLLNVAL) {
+					static int fuckupcount;
+					if (++fuckupcount > 20) errmsg_diex(200, "too many fuckups");
 					// also shouldn't happen if I'm competent - gotta remove on
 					// close!
-					errmsg_warnx("tried to poll an invalid fd; this is a bug!");
+					char buf[11];
+					buf[fmt_fixed_s32(buf, i)] = '\0';
+					errmsg_warnx("tried to poll an invalid fd ", buf,
+							"; this is a bug!");
 				}
 				else {
 					fd_cbs[i].f(i, pfds[i].revents, fd_cbs[i].ctxt);

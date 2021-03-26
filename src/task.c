@@ -66,11 +66,13 @@ struct task {
 						   // (if moved, would need something like container_of)
 	uint cyclecheck;
 	uchar maxdepstatus; // highest exit code from exited deps
-	// char padding[7]; // 7!!! :(
+	uint id; // id for creating/opening a unique error output filename
+	// char padding[3];
 	char *title; // user-provided friendly description for tui/logs
 	struct task_desc desc;
 	struct db_taskresult *outresult; // write to here when done
 	// on-disk file to store error output (note: fd is positive; top bit unused)
+	// (further note: if !haderr, file doesn't exist yet (to avoid EMFILE)
 	bool haderr : 1; uint fd_err : 31;
 	uint nblockers; // how many tasks we're waiting for before we can unblock
 					// (0 if not currently blocked)
@@ -103,25 +105,19 @@ static struct task *opentask(struct task_desc d, uint id) {
 		t->blockees = (struct vec_taskp){0};
 		t->cyclecheck = 0;
 		t->title = 0;
+		t->id = id;
 		if (!table_init_taskdesc(&t->deps)) goto e;
 		if (!table_init_infile(&t->infiles)) goto e1;
-		char buf[12];
-		buf[0] = 'e';
-		buf[1 + fmt_fixed_u32(buf + 1, id)] = '\0';
-		t->fd_err = openat(db_dirfd, buf, O_RDWR | O_CREAT | O_TRUNC |
-				O_CLOEXEC, 0644);
-		if (t->fd_err == -1) goto e2;
 	}
 	return t;
 
-e2:	free(t->infiles.data); free(t->infiles.flags);
 e1: free(t->deps.data); free(t->deps.flags);
 e:	freelist_free_task(t);
 	return 0;
 }
 
 static void closetask(struct task *t) {
-	close(t->fd_err);
+	if (t->haderr) close(t->fd_err);
 	// don't free here, title gets assigned to tui_lastdone before closetask is
 	// called; after that, tui_lastdone gets freed before next title is set
 	// free(t->title);
@@ -239,7 +235,9 @@ static void handle_success(struct task *t, int status) {
 		if (renameat(db_dirfd, buf, db_dirfd, buf2) == -1) goto e;
 	}
 	else {
-		// if no error output, delete; avoids read()/close() syscalls later
+		// if no error output, delete (we shouldn't have created files, but
+		// there might have been output in some _previous_ run, and it can't
+		// hurt to also remove any temp junk while we're at it, just to be sure)
 		unlinkat(db_dirfd, buf, 0);
 		unlinkat(db_dirfd, buf2, 0);
 	}
@@ -466,7 +464,22 @@ static void proc_cb(int evtype, union proc_ev_param P, struct proc_info *proc) {
 	struct task *t = (struct task *)proc;
 	switch (evtype) {
 		case PROC_EV_STDERR:
-			t->haderr = true;
+			if (!t->haderr) {
+				// create file lazily; originally we just did this in opentask()
+				// but that used up all the FDs when many tasks were queued in
+				// parallel, which is obviously no good
+				// this also avoids creating as many syscalls, inodes, etc.
+				char buf[12];
+				buf[0] = 'e';
+				buf[1 + fmt_fixed_u32(buf + 1, t->id)] = '\0';
+				t->fd_err = openat(db_dirfd, buf, O_RDWR | O_CREAT | O_TRUNC |
+						O_CLOEXEC, 0644);
+				if (t->fd_err == -1) {
+					errmsg_warn("couldn't open "BUILDDB_DIR"/", buf);
+					goto qfail;
+				}
+				t->haderr = true;
+			}
 			if (!fd_writeall(t->fd_err, P.buf, P.sz)) goto fail;
 			break;
 		case PROC_EV_EXIT:

@@ -207,6 +207,7 @@ ce:		if (errno == ENOENT || errno == EACCES) {
 	// FIXME work out how to gracefully recover here
 	if (!ent) errmsg_die(200, msg_fatal, "couldn't store process information");
 	*ent = proc;
+	close(ipcsock[1]);
 	close(errsock[1]);
 	return;
 

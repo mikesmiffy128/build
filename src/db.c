@@ -342,6 +342,10 @@ struct db_infile *db_getinfile(const char *path) {
 		struct db_infile *i = permalloc_infile();
 		if (!i) return 0;
 		i->newness = 0;
+		// hack(?): other db_infile initialisation is unnecessary -
+		// infile_ensure will call update which will fill everything in
+		// technically this involves undefined branches but oh well, only
+		// valgrind cares
 		l->path = path;
 		l->i = i;
 		table_transactcommit_lookup_infile(&infiles);
@@ -358,7 +362,12 @@ struct db_taskresult *db_gettaskresult(struct task_desc desc) {
 		struct db_taskresult *r = permalloc_taskresult();
 		if (!r) return 0;
 		r->newness = 0;
+		r->checked = false;
 		r->id = nexttaskid++;
+		r->ninfiles = 0;
+		r->ndeps = 0;
+		r->infiles = 0;
+		r->deps = 0;
 		l->desc = desc;
 		l->r = r;
 		table_transactcommit_lookup_taskresult(&results);

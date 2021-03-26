@@ -37,19 +37,27 @@
 
 static int fd;
 
-// Important note: this table is based on the idea that FNV1a + a length should
-// never collide. If they ever do, we'll need a bigger hash (blake2 maybe??) to
-// avoid disaster.
-struct ent {
+struct hls { // hash-length-string tuple
 	uvlong hash_and_len; // precomputed!
-	uint idx; // position in ordered list (below)
-	// char padding[4];
 	const char *s;
 };
-DECL_TABLE(static, strpool, uvlong, struct ent)
-#define hash_precomp(x) x
-static inline uvlong kmemb_precomp(struct ent *e) { return e->hash_and_len; }
-DEF_TABLE(static, strpool, hash_precomp, table_ideq, kmemb_precomp)
+struct ent {
+	uvlong hash_and_len; // precomputed!
+	const char *s;
+	uint idx; // position in ordered list (below)
+	// char padding[4];
+};
+DECL_TABLE(static, strpool, struct hls, struct ent)
+static uint hash_precomp(struct hls hls) {
+	return hls.hash_and_len;
+}
+static bool eq_hls(struct hls hls1, struct hls hls2) {
+	return hls1.hash_and_len == hls2.hash_and_len &&
+			(hls1.s == hls2.s ||
+				!memcmp(hls1.s, hls2.s, hls1.hash_and_len >> 32));
+}
+static struct hls memb_hls(const struct ent *e) { return *(struct hls *)e; }
+DEF_TABLE(static, strpool, hash_precomp, eq_hls, memb_hls)
 static struct table_strpool tab;
 
 static uvlong strlen_and_hash(const char *s) {
@@ -63,6 +71,7 @@ struct list VEC(const char *);
 static struct list indexed = {0};
 
 void strpool_init(void) {
+const char *Lastfullstr = 0;
 	if (!table_init_strpool(&tab)) {
 		errmsg_die(100, msg_fatal, "couldn't create string pool table");
 	}
@@ -79,7 +88,10 @@ void strpool_init(void) {
 		int nread = ibuf_getbytes(b, &hl, sizeof(hl));
 		if (nread == -1) goto e;
 		if (nread == 0) break; // EOF here is fine! we're done!
-		if (nread != sizeof(hl)) goto eof;
+		if (nread != sizeof(hl)) {
+			errmsg_warnx("eof on hl");
+			goto eof;
+		}
 		uint len = hl >> 32;
 		if (len > -1u / 2 - 1) {
 			// slight awkwardness: getbytes length is an int; strings should
@@ -93,9 +105,13 @@ void strpool_init(void) {
 		s[len] = '\0';
 		nread = ibuf_getbytes(b, s, len);
 		if (nread == -1) goto e;
-		if (nread != len) goto eof;
+		if (nread != len) {
+			s[nread] = '\0';
+			errmsg_warnx("eof on s");
+			goto eof;
+		}
 		// vec_pop(&s); // remove the extra \0 - doesn't actually matter here
-		struct ent *e = table_put_strpool(&tab, hl);
+		struct ent *e = table_put_strpool(&tab, (struct hls){hl, s});
 		if (!e) goto e;
 		e->hash_and_len = hl;
 		e->s = s;
@@ -104,14 +120,16 @@ void strpool_init(void) {
 	}
 
 	return;
-eof:errmsg_diex(2, msg_fatal, "invalid strings file: unexpected EOF");
+eof:errmsg_diex(2, msg_fatal, "invalid strings file: unexpected EOF (last: ",
+			Lastfullstr, ")");
 e:	errmsg_die(100, msg_fatal, "couldn't load strings database");
 }
 
 const char *db_intern(const char *s) {
 	bool isnew;
 	uvlong hl = strlen_and_hash(s);
-	struct ent *e = table_putget_transact_strpool(&tab, hl, &isnew);
+	struct ent *e = table_putget_transact_strpool(&tab, (struct hls){hl, s},
+			&isnew);
 	if (!e) return 0;
 	if (isnew) {
 		if (!vec_push(&indexed, s)) return 0;
@@ -141,7 +159,7 @@ const char *db_intern_free(char *s) {
 
 // assumes the string is actually in there
 uint strpool_getidx(const char *s) {
-	return table_get_strpool(&tab, strlen_and_hash(s))->idx;
+	return table_get_strpool(&tab, (struct hls){strlen_and_hash(s), s})->idx;
 }
 
 // assumes the index is actually in there
