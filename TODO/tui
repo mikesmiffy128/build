@@ -1,3 +1,7 @@
 Terminal UI improvements
 ====
-It's sort of better now, but it's still open to tweaking
+The compact single-line thing has grown on me so I don't really wanna change
+that, but I do wanna replace "last done" with "last started and still running"
+which will probably come about alongside the stderr scheduling stuff. Oh yeah,
+we also want to do that - order the error outputs in some way rather than just
+dumping them willy nilly.

@@ -1,7 +1,0 @@
-Ensure portability
-====
-This is mostly done, just illumos isn't testable for some reason. But that's not
-too bad: we already support *most* of the major open source platforms and don't
-do anything that should be too hard to make work on other platforms.
-
-Once illumos is known to work, this can get closed as far as I'm concerned.

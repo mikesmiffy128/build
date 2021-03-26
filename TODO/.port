@@ -1,0 +1,9 @@
+Ensure portability
+====
+In no particular order: Linux with glibc, Linux with musl, FreeBSD, OpenBSD,
+NetBSD and illumos are all supported. I call that a win.
+
+Other more obscure platforms can still get added later, but that's trivial work,
+so the initial TODO is considered DONE!
+
+Hooray for virtual machines!
