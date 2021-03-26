@@ -25,7 +25,7 @@ case "$target_os" in
 	netbsd)
 		plat_supported_cc="gcc-7.5.0-netbsd"
 		plat_friendly_cc="NetBSD GCC 7.5.0" ;;
-	# TODO(port) want illumos here too! can't get a test vm running atm though
+	# XXX should really have an illumos case, but not sure exactly what to put?
 	*) ;;
 esac
 

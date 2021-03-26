@@ -86,7 +86,7 @@ mid:	for (;;) {
 slash:	++depth;
 		*canon++ = '/';
 nosl:	while (*++path == '/');
-		if (!*path) return FPATH_TRAILSLASH; // TODO(basic-core): consider this
+		if (!*path) return FPATH_TRAILSLASH;
 	}
 r:	if (canon == start) return FPATH_EMPTY;
 	*canon = '\0';
