@@ -44,8 +44,11 @@ magically happen without the need for external dependency tracking.
 .Nm build_dep
 tells
 .Xr build 1
-that the currently-running task depends on the task specified by `argv` and
-`workdir`, and causes that task to either begin running once the necessary
+that the currently-running task depends on the task specified by
+.Ar argv
+and
+.Ar workdir ,
+and causes that task to either begin running once the necessary
 resources are available, or have its existing result used if already up-to-date.
 It is equivalent to running
 .Xr build-dep 1
@@ -69,7 +72,7 @@ tells
 .Xr build 1
 that the currently-running task depends on access to and/or the contents of the
 file at
-.Dq path
+.Ar path
 (it is equivalent to passing the path to the
 .Xr build-infile 1
 command). If the file is changed in the future, the task will be considered
@@ -81,7 +84,7 @@ gives
 a friendly name for the current task, for display purposes. This is purely a
 user-facing hint, and does not affect the semantics of the build system. It is
 (of course), equivalent to
-.Xr build-tasktitle 1
+.Xr build-tasktitle 1 .
 .Sh RETURN VALUES
 Most of these functions are non-blocking and return immediately without
 producing a result.
