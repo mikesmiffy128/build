@@ -297,7 +297,7 @@ ok:	atexit(&unlock);
 		// making more assumptions about padding so... meh
 		n = ibuf_getbytes(b, p->r, sizeof(*p->r) - sizeof(void *) * 2);
 		checkread(n, sizeof(*p->r) - sizeof(void *) * 2);
-		if (p->r->id > nexttaskid) nexttaskid = p->r->id + 1;
+		if (p->r->id >= nexttaskid) nexttaskid = p->r->id + 1;
 		const char **infiles = malloc(p->r->ninfiles * sizeof(*p->r->infiles));
 		if (!infiles) diemem();
 		for (uint i = 0; i < p->r->ninfiles; ++i) {
