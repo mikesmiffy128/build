@@ -19,6 +19,8 @@ freebsd
 openbsd
 #elif defined(__NetBSD__)
 netbsd
+#elif defined(__DragonFly__)
+dragonfly
 #elif defined(__SunOS) || defined(__sun)
 illumos
 #elif defined(__APPLE__)

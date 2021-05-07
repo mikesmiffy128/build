@@ -511,6 +511,10 @@ static void proc_cb(int evtype, union proc_ev_param P, struct proc_info *proc) {
 			struct ipc_req req;
 			if (!ipcserver_recv(t->base.ipcsock, &req, t->desc.workdir)) {
 				if (errno == EINVAL) goto qfail; // error reported by ipcserver
+#ifdef __DragonFly__
+				// ECONNRESET on connectionless sockets, brought to you by Matt
+				if (errno == ECONNRESET) break;
+#endif
 				goto fail;
 			}
 			switch (req.type) {

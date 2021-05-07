@@ -17,7 +17,7 @@ version_clang() {
 	_suffix=
 	_prefix=
 	_split() {
-		# catch "FreeBSD Clang," "OpenBSD Clang," "Apple Clang," etc
+		# catch "FreeBSD clang," "OpenBSD clang," "Apple clang," etc
 		while [ $1 != "clang" ]; do
 			_suffix="$_suffix-`echo "$1" | awk '{print tolower($0)}'`"
 			_prefix="$1 "
@@ -25,9 +25,9 @@ version_clang() {
 		done
 		shift 2 # clang version ____
 		cc_ver="$1$_suffix"
+		cc_friendly="${_prefix}Clang $cc_ver"
 	}
 	_split $($cc --version | head -1)
-	cc_friendly="${_prefix}Clang $cc_ver"
 }
 
 version_gcc() {
@@ -41,14 +41,19 @@ version_gcc() {
 			shift 2
 			_suffix="-netbsd"
 			_prefix="NetBSD "
+		elif [ "$2" = "[DragonFly]" ]; then
+			# they just had to go and be different!
+			cc_ver="$1-dragonfly"
+			cc_friendly="DragonFly GCC $1"
+			return
 		else
 			shift # (GCC)
 		fi
 		while [ $# != 1 ]; do shift; done
 		cc_ver="$1$_suffix"
+		cc_friendly="${_prefix}GCC $cc_ver"
 	}
 	_split $($cc --version | head -1)
-	cc_friendly="${_prefix}GCC $cc_ver"
 }
 
 version_unknown() {

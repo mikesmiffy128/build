@@ -14,8 +14,8 @@
 plat_supported_cc=
 case "$target_os" in
 	linux)
-		plat_supported_cc="clang-11.0.1"
-		plat_friendly_cc="Clang 11.0.1" ;;
+		plat_supported_cc="clang-11.1.0"
+		plat_friendly_cc="Clang 11.1.0" ;;
 	freebsd)
 		plat_supported_cc="clang-10.0.1-freebsd"
 		plat_friendly_cc="FreeBSD Clang 10.0.1" ;;
@@ -25,6 +25,9 @@ case "$target_os" in
 	netbsd)
 		plat_supported_cc="gcc-7.5.0-netbsd"
 		plat_friendly_cc="NetBSD GCC 7.5.0" ;;
+	dragonfly)
+		plat_supported_cc="gcc-8.3-dragonfly"
+		plat_friendly_cc="DragonFly GCC 8.3" ;;
 	# XXX should really have an illumos case, but not sure exactly what to put?
 	*) ;;
 esac
