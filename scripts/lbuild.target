@@ -8,8 +8,7 @@ out=lib/lua/$luaver/lbuild.so
 libs=libbuild
 src="src/lbuild.c"
 
-if [ "$cpoly_use_bundled" ]; then src="$src
-	libcpoly/src/progname.c
+if [ "$cpoly_use_bundled" = 1 ]; then src="$src
 	libcpoly/src/reallocarray.c"
 fi
 

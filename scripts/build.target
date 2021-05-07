@@ -24,7 +24,7 @@ src="\
 	cbits/src/iobuf.c
 	cbits/src/path.c"
 
-if [ "$cpoly_use_bundled" ]; then src="$src
+if [ "$cpoly_use_bundled" = 1 ]; then src="$src
 	libcpoly/src/arc4random/arc4random.c
 	libcpoly/src/progname.c
 	libcpoly/src/reallocarray.c

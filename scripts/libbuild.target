@@ -11,7 +11,7 @@ src="\
 	cbits/src/errorstring.c
 	cbits/src/iobuf.c"
 
-if [ "$cpoly_use_bundled" ]; then src="$src
+if [ "$cpoly_use_bundled" = 1 ]; then src="$src
 	libcpoly/src/progname.c"
 fi
 
