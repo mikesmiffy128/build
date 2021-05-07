@@ -127,8 +127,6 @@ noreturn evloop_run(void) {
 			if (pfds[i].revents) {
 				--polled;
 				if (pfds[i].revents & POLLNVAL) {
-					static int fuckupcount;
-					if (++fuckupcount > 20) errmsg_diex(200, "too many fuckups");
 					// also shouldn't happen if I'm competent - gotta remove on
 					// close!
 					char buf[11];
